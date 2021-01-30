@@ -5,6 +5,7 @@ import os
 from utils.data_manager import DataManager
 from utils.data_load import KoreaDataLoader
 from datetime import datetime
+from data.section import *
 
 
 start = datetime(2019,1,1)
@@ -68,15 +69,23 @@ if __name__ == "__main__":
             kospi_dir=kospi_img_dir, kosdaq_dir=kosdaq_img_dir)
     )
 
+
     # ----------------------- main ------------------------- #
-
-    from data.section import semi_dict
-    target_dict = semi_dict
-    section_dir = os.path.join('img','kospi',target_dict['type'])
+    target_dict = battery_dict
+    section_dir = os.path.join('img',target_dict['type'])
     os.system("mkdir -p {dir}".format(dir=section_dir))
-    get_charts(data_manager, data_loader, target_dict, section_dir)
+    # get_charts(data_manager, data_loader, target_dict, section_dir)
 
 
-
-
-
+    # ------------------------------------------------- #
+    KOSPI_data = data_loader.data_from_yahoo('^KS11', start, end)
+    img_dir = kospi_img_dir
+    for code, name in target_dict.items():
+        print(code,name)
+        if code == 'type' : continue
+        data = data_loader.data_from_yahoo(code, start, end)
+        data_manager.load_data(data)
+        data_manager.plot(name, code)
+        data_manager.add_ref_line(KOSPI_data, name='KOSPI')
+        save_path = os.path.join(img_dir, name +'.png')
+        data_manager.save(save_path)
