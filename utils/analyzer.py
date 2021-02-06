@@ -5,14 +5,18 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import matplotlib.font_manager as fm
 import matplotlib.ticker as ticker
+from sklearn.preprocessing import MinMaxScaler
+import pandas as pd
+
 
 lock = threading.Lock()
+min_max_scaler = MinMaxScaler()
 
 #font_path = '/usr/share/fonts/truetype/nanum/NanumGothicCoding.ttf'
 font_path = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
 fontprop = fm.FontProperties(fname=font_path, size=18)
 
-class DataManager:
+class Analyzer:
     COLORS = ['r', 'b', 'g']
 
     def __init__(self, vnet=False):
@@ -30,13 +34,21 @@ class DataManager:
 
     def load_data(self, data, norm=True):
 
-        #self.data = data[data['Volume'] > 0]
+        self.data = data[data['Volume'] > 0]
         self.volumes = data['Volume']
         self.data = data
 
         if norm :
+            # fitted = min_max_scaler.fit(self.data)
+            # output = min_max_scaler.transform(self.data)
+            # output = pd.DataFrame(output, columns=self.data.columns, index=list(self.data.index.values))
+            # self.data = output
             mean=(self.data.mean(axis=0))
             std=(self.data.std(axis=0))
+            print(self.data)
+            print(mean)
+            print(std)
+            print('------------------------------')
             self.data = ((self.data - mean)/std)
 
         self.index = self.data.index.astype('str') # 캔들스틱 x축이 str로 들어감
@@ -74,6 +86,12 @@ class DataManager:
 
 
     def add_ref_line(self, ref_data,name='Reference'):
+
+
+        # fitted = min_max_scaler.fit(ref_data)
+        # output = min_max_scaler.transform(ref_data)
+        # output = pd.DataFrame(output, columns=ref_data.columns, index=list(ref_data.index.values))
+        # ref_data = output
 
         mean=(ref_data.mean(axis=0))
         std=(ref_data.std(axis=0))
