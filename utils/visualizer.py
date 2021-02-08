@@ -1,19 +1,20 @@
-import threading
-import numpy as np
 from mplfinance.original_flavor import candlestick2_ohlc
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
+import matplotlib
 import matplotlib.font_manager as fm
 import matplotlib.ticker as ticker
-from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
+from utils.analyzer import Analyzer
 
 
-lock = threading.Lock()
-min_max_scaler = MinMaxScaler()
 
-font_path = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
-fontprop = fm.FontProperties(fname=font_path, size=18)
+
+FONT_PATH = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
+FONT_NAME = fm.FontProperties(fname=FONT_PATH, size=18).get_name()
+matplotlib.rc('font',family=FONT_NAME)
+
+analyzer = Analyzer()
 
 class Visualizer:
     COLORS = ['r', 'b', 'g']
@@ -30,6 +31,55 @@ class Visualizer:
         self.top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
         self.bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=self.top_axes)
         self.bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
+
+
+
+
+    def plot(self, data, title, code=''):
+        """ Ploting basic candle stick chart """
+
+        data = data[data['volume'] > 0]
+
+        # draw candle stick chart
+        max_high = data['high'].max()*1.2
+        min_low = data['low'].min()*1.2
+
+        self.top_axes.set_ylim([min_low, max_high])
+        candlestick2_ohlc(self.top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
+
+        index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+
+        # draw volume chart
+        color_fuc = lambda x : 'r' if x >= 0 else 'b'
+        color_list = list(data['volume'].diff().fillna(0).apply(color_fuc))
+        self.bottom_axes.bar(index, data['volume'], width=0.5, align='center', color=color_list)
+
+        # title name
+        self.top_axes.set_title(title+': ' + code, fontproperties=FONT_PROP)
+        self.bottom_axes.set_xlabel('Date', fontsize=15)
+        self.top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        plt.tight_layout()
+        #plt.xticks(rotation = 45)
+
+
+    def plot_dpc(self, data01, data02, data01_name, data02_name):
+
+        data01_dpc_cs = analyzer.getDailyPercChanges(data01)
+        data02_dpc_cs = analyzer.getDailyPercChanges(data02)
+
+        self.top_axes.plot(data01.index, data01_dpc_cs, 'b', label=data01_name)
+        self.top_axes.plot(data02.index, data02_dpc_cs, 'r--', label=data02_name)
+        self.top_axes.set_title('Daily Percent Changes Chart')
+        
+        self.bottom_axes.set_xlabel('Date', fontsize=15)
+        self.top_axes.set_ylabel('Changes %', fontsize=15)
+        self.top_axes.grid(True)
+        self.top_axes.legend(loc='best')
+
+
+        # plt.savefig('./img/test.png')
+
+
 
     def load_data(self, data, norm=True):
 
@@ -50,7 +100,6 @@ class Visualizer:
             print('------------------------------')
             self.data = ((self.data - mean)/std)
 
-        self.index = self.data.index.astype('str') # 캔들스틱 x축이 str로 들어감
 
 
     def add_MA_line(self, num_MA):
@@ -62,26 +111,6 @@ class Visualizer:
         self.top_axes.legend()
 
 
-    def plot(self, title, code=''):
-        """ Ploting basic candle stick chart """
-
-        # draw candle stick chart
-        max_high = self.data['High'].max()*1.2
-        min_low = self.data['Low'].min()*1.2
-        self.top_axes.set_ylim([min_low, max_high])
-        candlestick2_ohlc(self.top_axes, self.data['Open'], self.data['High'], self.data['Low'], self.data['Close'], width=0.5, colorup='r', colordown='b')
-        
-        # draw volume chart
-        color_fuc = lambda x : 'r' if x >= 0 else 'b'
-        color_list = list(self.data['Volume'].diff().fillna(0).apply(color_fuc))
-        self.bottom_axes.bar(self.index, self.volumes, width=0.5, align='center', color=color_list)
-
-        # title name
-        self.top_axes.set_title(title+': ' + code, fontproperties=fontprop)
-        self.bottom_axes.set_xlabel('Date', fontsize=15)
-        self.top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
-        plt.tight_layout()
-        #plt.xticks(rotation = 45)
 
 
     def add_ref_line(self, ref_data,name='Reference'):
@@ -142,8 +171,14 @@ class Visualizer:
 
 
     def save(self, path):
-        with lock:
-            self.fig.savefig(path)
+        self.fig.savefig(path)
+
+
+    if __name__ == '__main__':
+        print('hello world')
+
+
+
 
 
         # # self.fig = plt.figure(figsize=(20, 10))

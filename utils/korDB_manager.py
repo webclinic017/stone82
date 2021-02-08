@@ -1,10 +1,12 @@
-import os
 import pandas as pd
-import requests
-import pymysql
-from pandas_datareader import data as pdr_data
 from bs4 import BeautifulSoup
+from pandas_datareader import data as pdr_data
 from datetime import datetime
+import urllib, pymysql, calendar, time, json
+import os, requests
+import multiprocessing as mp
+
+
 
 
 PWD='ehfvkfdl123@'
@@ -94,19 +96,6 @@ class KoreaDB_manager():
                 print('')              
 
 
-    def getCode(self, target_name):
-        for code, name in self.code_dict.items():
-            if name == target_name: 
-                return code
-            else:
-                "Can't find code! please check company name again"
-
-    def getName(self, code):
-        return self.code_dict[code]
-
-        
-
-
     # --------------------------- Data Crawling --------------------------- #
     def getDataFromYahoo(self, code, start, end):
 
@@ -130,7 +119,6 @@ class KoreaDB_manager():
             s = str(pgrr.a["href"]).split('=')
             lastpage = s[-1] 
             df = pd.DataFrame()
-
             pages = min(int(lastpage), pages_to_fetch)
             for page in range(1, pages + 1)[:]:
                 pg_url = '{}&page={}'.format(url, page)
@@ -181,56 +169,75 @@ class KoreaDB_manager():
                 'price [OK]'.format(datetime.now().strftime('%Y-%m-%d'\
                 ' %H:%M'), num+1, company, code, len(df)))
 
+
+    def call_back(self, x):
+        if x is not None:
+            self.df = self.df.append(x, ignore_index=True)
+            print(x)
+        
+        self.n +=1
+        sys.stdout.write('\r%s/%s' % (self.n, '?')) 
+
     def updateDailyPrice(self, pages_to_fetch):
+
         """KRX 상장법인의 주식 시세를 네이버로부터 읽어서 DB에 업데이트"""  
+
+        # TODO: need to make parallel processing
+
+
+        t_stamp01 = time.time()
         for idx, code in enumerate(self.code_dict):
             df = self.getDataFromNaver(code, self.code_dict[code], pages_to_fetch)
             if df is None:
                 continue
             self.replaceIntoDB(df, idx, code, self.code_dict[code])   
+        t_stamp02 = time.time()
 
-    # def executeDaily(self,config_path):
-    #     """실행 즉시 및 매일 오후 다섯시에 daily_price 테이블 업데이트"""
-    #     self.updateCompanyInfo()
+        #print(f'runtime is: {t_stamp02-t_stamp01:.2f} sec\n# of core is: {num_proc}')
+
+
+
+    def executeDaily(self,config_path):
+        """실행 즉시 및 매일 오후 다섯시에 daily_price 테이블 업데이트"""
+        self.updateCompanyInfo()
         
-    #     try:
-    #         with open(config_path, 'r') as in_file:
-    #             config = json.load(in_file)
-    #             pages_to_fetch = config['pages_to_fetch']
-    #     except FileNotFoundError:
+        try:
+            with open(config_path, 'r') as in_file:
+                config = json.load(in_file)
+                pages_to_fetch = config['pages_to_fetch']
+        except FileNotFoundError:
 
-    #         with open('config_base.json', 'w') as out_file:
-    #             pages_to_fetch = 100 
-    #             config = {'pages_to_fetch': 1}
-    #             json.dump(config, out_file)
-    #     self.update_daily_price(pages_to_fetch)
+            with open('config/korDB_base.json', 'w') as out_file:
+                pages_to_fetch = 100 
+                config = {'pages_to_fetch': 1}
+                json.dump(config, out_file)
+        self.updateDailyPrice(pages_to_fetch)
 
-    #     tmnow = datetime.now()
-    #     lastday = calendar.monthrange(tmnow.year, tmnow.month)[1]
-    #     if tmnow.month == 12 and tmnow.day == lastday:
-    #         tmnext = tmnow.replace(year=tmnow.year+1, month=1, day=1,
-    #             hour=17, minute=0, second=0)
-    #     elif tmnow.day == lastday:
-    #         tmnext = tmnow.replace(month=tmnow.month+1, day=1, hour=17,
-    #             minute=0, second=0)
-    #     else:
-    #         tmnext = tmnow.replace(day=tmnow.day+1, hour=17, minute=0,
-    #             second=0)   
-    #     tmdiff = tmnext - tmnow
-    #     secs = tmdiff.seconds
-    #     t = Timer(secs, self.execute_daily)
-    #     print("Waiting for next update ({}) ... ".format(tmnext.strftime
-    #         ('%Y-%m-%d %H:%M')))
-    #     t.start()
+        tmnow = datetime.now()
+        lastday = calendar.monthrange(tmnow.year, tmnow.month)[1]
+        if tmnow.month == 12 and tmnow.day == lastday:
+            tmnext = tmnow.replace(year=tmnow.year+1, month=1, day=1,
+                hour=17, minute=0, second=0)
+        elif tmnow.day == lastday:
+            tmnext = tmnow.replace(month=tmnow.month+1, day=1, hour=17,
+                minute=0, second=0)
+        else:
+            tmnext = tmnow.replace(day=tmnow.day+1, hour=17, minute=0,
+                second=0)   
+        tmdiff = tmnext - tmnow
+        secs = tmdiff.seconds
+        t = Timer(secs, self.execute_daily)
+        print("Waiting for next update ({}) ... ".format(tmnext.strftime
+            ('%Y-%m-%d %H:%M')))
+        t.start()
 
 
 if __name__ == '__main__':
 
     data_loader = KoreaDB_manager()
     data_loader.updateCompanyInfo()
-    data_loader.updateDailyPrice(1)
-
-    #data_loader.execute_daily()
+    data_loader.updateDailyPrice(100)
+    # data_loader.executeDaily('config/kor_DB.config')
 
 
 

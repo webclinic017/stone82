@@ -1,177 +1,25 @@
-import threading
 import numpy as np
-from mplfinance.original_flavor import candlestick2_ohlc
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
-import matplotlib.font_manager as fm
-import matplotlib.ticker as ticker
 from sklearn.preprocessing import MinMaxScaler
-import pandas as pd
-
+import threading
 
 lock = threading.Lock()
-min_max_scaler = MinMaxScaler()
-
-#font_path = '/usr/share/fonts/truetype/nanum/NanumGothicCoding.ttf'
-font_path = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
-fontprop = fm.FontProperties(fname=font_path, size=18)
 
 class Analyzer:
-    COLORS = ['r', 'b', 'g']
 
     def __init__(self, vnet=False):
 
-        self.data_type = None
-        self.data = None
-        self.index = None
-        self.ma_list=set()
-
-        # set grid 
-        self.fig = plt.figure(figsize=(20, 10))
-        self.top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
-        self.bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=self.top_axes)
-        self.bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
-
-    def load_data(self, data, norm=True):
-
-        self.data = data[data['Volume'] > 0]
-        self.volumes = data['Volume']
-        self.data = data
-
-        if norm :
-            # fitted = min_max_scaler.fit(self.data)
-            # output = min_max_scaler.transform(self.data)
-            # output = pd.DataFrame(output, columns=self.data.columns, index=list(self.data.index.values))
-            # self.data = output
-            mean=(self.data.mean(axis=0))
-            std=(self.data.std(axis=0))
-            print(self.data)
-            print(mean)
-            print(std)
-            print('------------------------------')
-            self.data = ((self.data - mean)/std)
-
-        self.index = self.data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+        pass
+    
 
 
-    def add_MA_line(self, num_MA):
-        """ Adding movie average line """
-        moving_avg = 'MA-'+ num_MA
-        self.ma_list.add(moving_avg)
-        self.data[moving_avg] = self.data['Close'].rolling(int(num_MA)).mean()
-        self.top_axes.plot(self.index, self.data[moving_avg], label=moving_avg, linewidth=0.7)
-        self.top_axes.legend()
 
+    def getDailyPercChanges(self, data):
+        """ return daily percent changes """
 
-    def plot(self, title, code=''):
-        """ Ploting basic candle stick chart """
+        dpc = (data['close'] - data['close'].shift(1)) / data['close'].shift(1) * 100
+        dpc.iloc[0] = 0
 
-        # draw candle stick chart
-        max_high = self.data['High'].max()*1.2
-        min_low = self.data['Low'].min()*1.2
-        self.top_axes.set_ylim([min_low, max_high])
-        candlestick2_ohlc(self.top_axes, self.data['Open'], self.data['High'], self.data['Low'], self.data['Close'], width=0.5, colorup='r', colordown='b')
-        
-        # draw volume chart
-        color_fuc = lambda x : 'r' if x >= 0 else 'b'
-        color_list = list(self.data['Volume'].diff().fillna(0).apply(color_fuc))
-        self.bottom_axes.bar(self.index, self.volumes, width=0.5, align='center', color=color_list)
-
-        # title name
-        self.top_axes.set_title(title+': ' + code, fontproperties=fontprop)
-        self.bottom_axes.set_xlabel('Date', fontsize=15)
-        self.top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
-        plt.tight_layout()
-        #plt.xticks(rotation = 45)
-
-
-    def add_ref_line(self, ref_data,name='Reference'):
-
-
-        # fitted = min_max_scaler.fit(ref_data)
-        # output = min_max_scaler.transform(ref_data)
-        # output = pd.DataFrame(output, columns=ref_data.columns, index=list(ref_data.index.values))
-        # ref_data = output
-
-        mean=(ref_data.mean(axis=0))
-        std=(ref_data.std(axis=0))
-        ref_data = (ref_data - mean)/std
-        self.data['Reference'] = ref_data['Close']
-        
-        self.top_axes.plot(self.index, self.data['Reference'], label=name, linewidth=0.7)
-        self.top_axes.legend()
-
-    def clear(self):
-        
-        del self.fig , self.top_axes, self.bottom_axes
-        # _axes = self.top_axes.tolist()
-        # for ax in _axes[1:]:
-        #     ax.cla()  # 그린 차트 지우기
-        #     ax.relim()  # limit를 초기화
-        #     ax.autoscale()  # 스케일 재설정
-
-        # _axes = self.bottom_axes.tolist()
-        # for ax in _axes[1:]:
-        #     ax.cla()  # 그린 차트 지우기
-        #     ax.relim()  # limit를 초기화
-        #     ax.autoscale()  # 스케일 재설정
-        
-
-        self.fig = plt.figure(figsize=(20, 10))
-        self.top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
-        self.bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=self.top_axes)
-
-        # with lock:
-        #     _axes = self.axes.tolist()
-        #     for ax in _axes[1:]:
-        #         ax.cla()  # 그린 차트 지우기
-        #         ax.relim()  # limit를 초기화
-        #         ax.autoscale()  # 스케일 재설정
-        #     # y축 레이블 재설정
-        #     self.axes[1].set_ylabel('Agent')
-        #     self.axes[2].set_ylabel('V')
-        #     self.axes[3].set_ylabel('P')
-        #     self.axes[4].set_ylabel('PV')
-        #     for ax in _axes:
-        #         ax.set_xlim(xlim)  # x축 limit 재설정
-        #         ax.get_xaxis().get_major_formatter() \
-        #             .set_scientific(False)  # 과학적 표기 비활성화
-        #         ax.get_yaxis().get_major_formatter() \
-        #             .set_scientific(False)  # 과학적 표기 비활성화
-        #         # x축 간격을 일정하게 설정
-        #         ax.ticklabel_format(useOffset=False)
-
-
-    def save(self, path):
-        with lock:
-            self.fig.savefig(path)
-
-
-        # # self.fig = plt.figure(figsize=(20, 10))
-        # # self.axes = self.fig.add_subplot(111)
-        # # index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
-        # # data['MA5'] = data['Close'].rolling(5).mean()
-        # # data['MA15'] = data['Close'].rolling(15).mean()
-        # # data['MA30'] = data['Close'].rolling(30).mean()
-        # # data['MA60'] = data['Close'].rolling(60).mean()
-        # # data['MA120'] = data['Close'].rolling(120).mean()
-
-        # # self.axes.plot(index, data['MA5'], label='MA5', linewidth=0.7)
-        # # self.axes.plot(index, data['MA15'], label='MA15', linewidth=0.7)
-        # # self.axes.plot(index, data['MA30'], label='MA30', linewidth=0.7)
-        # # self.axes.plot(index, data['MA60'], label='MA60', linewidth=0.7)
-        # # self.axes.plot(index, data['MA120'], label='MA120', linewidth=0.7)
-
-        # self.axes.xaxis.set_major_locator(ticker.FixedLocator(data.index))
-        # self.axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
-
-        # # ax.xaxis.set_major_formatter(ticker.FixedFormatter(name_list))
-
-        # candlestick2_ohlc(self.axes, data['Open'], data['High'], data['Low'], data['Close'], width=0.5, colorup='r', colordown='b')
-        # #plt.xticks(rotation = 45)
-        # self.axes.legend()
-
-
+        return dpc.cumsum()
 
 
         # with lock:
