@@ -11,8 +11,6 @@ class Analyzer:
         pass
     
 
-
-
     def getDailyPercChanges(self, data):
         """ return daily percent changes """
 
@@ -20,6 +18,24 @@ class Analyzer:
         dpc.iloc[0] = 0
 
         return dpc.cumsum()
+
+
+    def getDrawDown(self, data, window=224):
+        """ return maximum draw down """
+        peak = data['close'].rolling(window, min_periods=1 ).max()
+        drawdown = data['close']/peak - 1.0
+        max_drawdown = drawdown.rolling(window,min_periods=1).min()
+
+        return drawdown, max_drawdown
+
+
+    def getMovingAvg(self, data, MA):
+
+        MA = int(MA)
+
+        return data['close'].rolling(MA).mean()
+
+         
 
 
         # with lock:

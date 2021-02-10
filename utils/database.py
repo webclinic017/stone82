@@ -30,6 +30,7 @@ class DataBase:
 
 
     def getDailyPrice(self, code, start_date=None, end_date=None):
+        
         """KRX 종목의 일별 시세를 데이터프레임 형태로 반환
             - code       : KRX 종목코드('005930') 또는 상장기업명('삼성전자')
             - start_date : 조회 시작일('2020-01-01'), 미입력 시 1년 전 오늘

@@ -56,24 +56,60 @@ if __name__ == "__main__":
     FLAGS = getArgs()
 
     visualizer = Visualizer()
+    manager = KoreaDB_manager()
     db = DataBase()
 
-    company01 = 'SK하이닉스'
-    company02 = '보락'
-    
-    
-    data01 = db.getDailyPrice(company01, start_date='2020-01-01',end_date='2020.12.31')
-    data02 = db.getDailyPrice(company02, start_date='2020-01-01',end_date='2020.12.31')
 
 
-    print(data01)
-    print(data02)
+    # company_list = ['RCL', 'NCLH', 'CCL', 'CUK']
+    # data_list=[]
 
-    # visualizer.plot(data, company, code)
+    # for company in company_list:
 
-    
-    visualizer.plot_dpc(data01,data02,company01, company02)
-    visualizer.save('./img/test.png')
+    #     data= manager.getDataFromYahoo(company,'2020-03-01','2021-02-01')
+    #     data = data.rename(columns={'Date':'date','Close':'close',
+    #         'Open':'open','High':'high','Low':'low','Volume':'volume'})
+    #     data_list.append(data)
+
+    # visualizer.drawCandleStick(data_list[0], company_list[0])
+    # visualizer.save('./imgs/CANDLE.png')
+    # visualizer.clear()
+
+    # visualizer.drawDPC(data_list, company_list, title=company_list[0] +'관련주식')
+    # visualizer.save('./imgs/DPC.png')
+
+
+
+
+
+    # ------------------------  COMPLETE ------------------------- #    
+    company_list = ['', 'SK하이닉스']
+    data_list=[]
+
+
+    for company in company_list:
+        data = db.getDailyPrice(company, start_date='2018-06-01',end_date='2020-12-01')
+        data_list.append(data)
+
+
+    visualizer.drawCandleStick(
+        data_list[0], 
+        start_date=None, 
+        end_date=None, 
+        title=company_list[0]+ ' 양봉차트', 
+        add_ma=True
+    )
+    visualizer.save('./imgs/CANDLE.png')
+    visualizer.clear()
+
+
+    visualizer.drawDPC(data_list, company_list, title=company_list[0] + ' 관련주식')
+    visualizer.save('./imgs/DPC.png')
+    visualizer.clear()
+
+    visualizer.drawMDD(data_list[0], title=company_list[0] + '최대 손실 낙폭')
+    visualizer.save('./imgs/MDD.png')
+
 
 
 

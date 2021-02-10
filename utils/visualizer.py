@@ -2,114 +2,145 @@ from mplfinance.original_flavor import candlestick2_ohlc
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import matplotlib
-import matplotlib.font_manager as fm
 import matplotlib.ticker as ticker
 import pandas as pd
 from utils.analyzer import Analyzer
+from datetime import datetime
 
 
 
+#FONT_PATH = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
+# FONT_NAME = fm.FontProperties(fname=FONT_PATH, size=18).get_name()
+# matplotlib.rc('font',family=FONT_NAME)
 
-FONT_PATH = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
-FONT_NAME = fm.FontProperties(fname=FONT_PATH, size=18).get_name()
-matplotlib.rc('font',family=FONT_NAME)
-
+matplotlib.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.family'] = 'NanumGothic'
+plt.rcParams['font.size'] = 12
 analyzer = Analyzer()
 
 class Visualizer:
-    COLORS = ['r', 'b', 'g']
+
 
     def __init__(self, vnet=False):
 
-        self.data_type = None
-        self.data = None
-        self.index = None
-        self.ma_list=set()
-
-        # set grid 
-        self.fig = plt.figure(figsize=(20, 10))
-        self.top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
-        self.bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=self.top_axes)
-        self.bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
+        self.fig = None
+        self.COLORS = ['r', 'b--', 'g', 'c--', 'k' , 'y--']
+        self.MA_NUMS= [5, 20, 60, 224]
 
 
 
-
-    def plot(self, data, title, code=''):
+    def drawCandleStick(self, data, start_date, end_date, title='Candle chart', add_ma=False):
         """ Ploting basic candle stick chart """
 
-        data = data[data['volume'] > 0]
+        # set fig
+        self.fig = plt.figure(figsize=(20, 10))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
+        bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=top_axes)
+        bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
+
 
         # draw candle stick chart
-        max_high = data['high'].max()*1.2
-        min_low = data['low'].min()*1.2
-
-        self.top_axes.set_ylim([min_low, max_high])
-        candlestick2_ohlc(self.top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
-
+        data = data[data['volume'] > 0]
+        max_high = data['high'].max()
+        min_low = data['low'].min()
+        top_axes.set_ylim([min_low, max_high])
+        candlestick2_ohlc(top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
         index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+
+        # TODO: add moving average with MA-224
+        if add_ma == True:
+            for idx, ma in enumerate(self.MA_NUMS):
+                ma_data = analyzer.getMovingAvg(data, ma)
+                moving_avg = 'MA-'+str(ma)
+                top_axes.plot(index, ma_data, label=moving_avg, linewidth=0.7)
+            top_axes.legend(loc='best',fontsize=15)
 
         # draw volume chart
         color_fuc = lambda x : 'r' if x >= 0 else 'b'
         color_list = list(data['volume'].diff().fillna(0).apply(color_fuc))
-        self.bottom_axes.bar(index, data['volume'], width=0.5, align='center', color=color_list)
+        bottom_axes.bar(index, data['volume'], width=0.5, align='center', color=color_list)
 
-        # title name
-        self.top_axes.set_title(title+': ' + code, fontproperties=FONT_PROP)
-        self.bottom_axes.set_xlabel('Date', fontsize=15)
-        self.top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        # title setup
+        top_axes.set_title(title, fontsize=30)
+        top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        top_axes.grid(True)
+        bottom_axes.set_xlabel('Date', fontsize=15)
         plt.tight_layout()
         #plt.xticks(rotation = 45)
 
 
-    def plot_dpc(self, data01, data02, data01_name, data02_name):
+    def drawMDD(self, data, title='MDD chart'):
+        """ ploting maximum draw down chart """
 
-        data01_dpc_cs = analyzer.getDailyPercChanges(data01)
-        data02_dpc_cs = analyzer.getDailyPercChanges(data02)
+        # set fig
+        self.fig = plt.figure(figsize=(20, 15))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=2, colspan=4)
+        bottom_axes = plt.subplot2grid((4,4), (2,0), rowspan=2, colspan=4, sharex=top_axes)
+        bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
 
-        self.top_axes.plot(data01.index, data01_dpc_cs, 'b', label=data01_name)
-        self.top_axes.plot(data02.index, data02_dpc_cs, 'r--', label=data02_name)
-        self.top_axes.set_title('Daily Percent Changes Chart')
+
+        # draw candle stick chart
+        data = data[data['volume'] > 0]
+        max_high = data['high'].max()
+        min_low = data['low'].min()
+        top_axes.set_ylim([min_low, max_high])
+        candlestick2_ohlc(top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
+        index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+
+
+        # draw MDD chart
+        dd, max_dd = analyzer.getDrawDown(data)
+        bottom_axes.plot(index, dd, c='blue', label='DD')
+        bottom_axes.plot(index, max_dd,  c='red', label='MDD')
+
+
+        # title setup
+        top_axes.set_title(title, fontsize=30)
+        top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        top_axes.grid(True)
+
+        bottom_axes.set_xlabel('Date', fontsize=15)
+        bottom_axes.grid(True)
+        bottom_axes.legend(loc='best',fontsize=20)
+
+        plt.tight_layout()
+
+
+
+
+
+
+    def drawDPC(self, data_list, data_name_list, title='Daily Percent Changes'):
         
-        self.bottom_axes.set_xlabel('Date', fontsize=15)
-        self.top_axes.set_ylabel('Changes %', fontsize=15)
-        self.top_axes.grid(True)
-        self.top_axes.legend(loc='best')
+        """ ploting daily percent changes """
 
+        assert (len(data_list) == len(data_name_list)) 
+        assert (len(data_list) <= len(self.COLORS))
 
-        # plt.savefig('./img/test.png')
+        # set fig
+        self.fig = plt.figure(figsize=(20, 10))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
 
+        # draw DPC chart
+        for i in range(len(data_list)):
+            data_dpc_cs = analyzer.getDailyPercChanges(data_list[i])
+            top_axes.plot(data_list[i].index, data_dpc_cs, self.COLORS[i], label=data_name_list[i])
 
-
-    def load_data(self, data, norm=True):
-
-        self.data = data[data['Volume'] > 0]
-        self.volumes = data['Volume']
-        self.data = data
-
-        if norm :
-            # fitted = min_max_scaler.fit(self.data)
-            # output = min_max_scaler.transform(self.data)
-            # output = pd.DataFrame(output, columns=self.data.columns, index=list(self.data.index.values))
-            # self.data = output
-            mean=(self.data.mean(axis=0))
-            std=(self.data.std(axis=0))
-            print(self.data)
-            print(mean)
-            print(std)
-            print('------------------------------')
-            self.data = ((self.data - mean)/std)
-
+        # title 
+        top_axes.set_title(title, fontsize=30)
+        top_axes.set_xlabel('Date', fontsize=15)
+        top_axes.set_ylabel('Changes (%)', fontsize=15)
+        top_axes.grid(True)
+        top_axes.legend(loc='best',fontsize=15)
 
 
     def add_MA_line(self, num_MA):
         """ Adding movie average line """
-        moving_avg = 'MA-'+ num_MA
+        moving_avg = 'MA-'+ str(num_MA)
         self.ma_list.add(moving_avg)
         self.data[moving_avg] = self.data['Close'].rolling(int(num_MA)).mean()
         self.top_axes.plot(self.index, self.data[moving_avg], label=moving_avg, linewidth=0.7)
         self.top_axes.legend()
-
 
 
 
@@ -131,7 +162,9 @@ class Visualizer:
 
     def clear(self):
         
-        del self.fig , self.top_axes, self.bottom_axes
+        del self.fig 
+        self.fig = None
+
         # _axes = self.top_axes.tolist()
         # for ax in _axes[1:]:
         #     ax.cla()  # 그린 차트 지우기
@@ -143,11 +176,7 @@ class Visualizer:
         #     ax.cla()  # 그린 차트 지우기
         #     ax.relim()  # limit를 초기화
         #     ax.autoscale()  # 스케일 재설정
-        
 
-        self.fig = plt.figure(figsize=(20, 10))
-        self.top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
-        self.bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=self.top_axes)
 
         # with lock:
         #     _axes = self.axes.tolist()
