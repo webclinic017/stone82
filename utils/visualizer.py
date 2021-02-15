@@ -107,7 +107,51 @@ class Visualizer:
 
 
 
+    def drawIndex(self, data_list, data_name_list, title='Index'):
+        """ ploting index  """
 
+        assert (len(data_list) == len(data_name_list)) 
+        assert (len(data_list) <= len(self.COLORS))
+
+        # set fig
+        self.fig = plt.figure(figsize=(20, 10))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
+
+        # draw DPC chart
+        for i in range(len(data_list)):
+            index_data = analyzer.getIndex(data_list[i])
+            top_axes.plot(data_list[i].index, index_data, self.COLORS[i], label=data_name_list[i])
+
+
+        # title 
+        top_axes.set_title(title, fontsize=30)
+        top_axes.set_xlabel('Date', fontsize=15)
+        top_axes.set_ylabel('Index', fontsize=15)
+        top_axes.grid(True)
+        top_axes.legend(loc='best',fontsize=15)
+
+
+    def drawScatter(self, x_data, x_data_name, y_data, y_data_name, title='Scattor plot'):
+
+        """ ploting index  """
+
+        # # set fig
+        self.fig = plt.figure(figsize=(10, 10))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
+
+        df = pd.DataFrame({'X': x_data['close'], 'Y': y_data['close']})
+        df = df.fillna(method='bfill')
+        df = df.fillna(method='ffill')
+
+        regress = analyzer.getLinerRegress(df['X'],df['Y'])
+        regress_line = f'Y = {regress.slope:.2f} * X + {regress.intercept:.2f}'
+
+        top_axes.set_title(title + f' (R = {regress.rvalue:.2f})', fontsize=30)
+        top_axes.scatter(df['X'], df['Y'], marker='.')
+        top_axes.plot(df['X'], regress.slope * df['X'] + regress.intercept, 'r')
+        top_axes.set_xlabel(x_data_name, fontsize=15)
+        top_axes.set_ylabel(y_data_name, fontsize=15)
+        top_axes.legend([regress_line, f'{x_data_name} x {y_data_name}'],loc='best',fontsize=15)
 
 
     def drawDPC(self, data_list, data_name_list, title='Daily Percent Changes'):

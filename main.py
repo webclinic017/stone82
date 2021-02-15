@@ -61,15 +61,16 @@ if __name__ == "__main__":
 
 
 
-    # company_list = ['RCL', 'NCLH', 'CCL', 'CUK']
-    # data_list=[]
+    company_list = ['TLT', '^KS11']
+    #company_list = ['RCL' ,'NCLH']
+    data_list=[]
 
-    # for company in company_list:
+    for company in company_list:
 
-    #     data= manager.getDataFromYahoo(company,'2020-03-01','2021-02-01')
-    #     data = data.rename(columns={'Date':'date','Close':'close',
-    #         'Open':'open','High':'high','Low':'low','Volume':'volume'})
-    #     data_list.append(data)
+        data= manager.getDataFromYahoo(company,'2018-01-04')
+        data = data.rename(columns={'Date':'date','Close':'close',
+            'Open':'open','High':'high','Low':'low','Volume':'volume'})
+        data_list.append(data)
 
     # visualizer.drawCandleStick(data_list[0], company_list[0])
     # visualizer.save('./imgs/CANDLE.png')
@@ -78,12 +79,19 @@ if __name__ == "__main__":
     # visualizer.drawDPC(data_list, company_list, title=company_list[0] +'관련주식')
     # visualizer.save('./imgs/DPC.png')
 
-
-
+    visualizer.drawScatter(
+        x_data=data_list[0], 
+        x_data_name=company_list[0], 
+        y_data=data_list[1],
+        y_data_name=company_list[1],
+        title='산점도'
+    )
+    visualizer.save('./imgs/scatter_plot.png')
+    visualizer.clear()
 
 
     # ------------------------  COMPLETE ------------------------- #    
-    company_list = ['', 'SK하이닉스']
+    company_list = ['삼성전자', 'NAVER']
     data_list=[]
 
 
@@ -92,23 +100,39 @@ if __name__ == "__main__":
         data_list.append(data)
 
 
-    visualizer.drawCandleStick(
-        data_list[0], 
-        start_date=None, 
-        end_date=None, 
-        title=company_list[0]+ ' 양봉차트', 
-        add_ma=True
-    )
-    visualizer.save('./imgs/CANDLE.png')
-    visualizer.clear()
+    # visualizer.drawCandleStick(
+    #     data_list[0], 
+    #     start_date=None, 
+    #     end_date=None, 
+    #     title=company_list[0]+ ' 양봉차트', 
+    #     add_ma=True
+    # )
+    # visualizer.save('./imgs/CANDLE.png')
+    # visualizer.clear()
 
 
-    visualizer.drawDPC(data_list, company_list, title=company_list[0] + ' 관련주식')
-    visualizer.save('./imgs/DPC.png')
-    visualizer.clear()
+    # visualizer.drawDPC(data_list, company_list, title=company_list[0] + ' 관련주식')
+    # visualizer.save('./imgs/DPC.png')
+    # visualizer.clear()
 
-    visualizer.drawMDD(data_list[0], title=company_list[0] + '최대 손실 낙폭')
-    visualizer.save('./imgs/MDD.png')
+
+    # visualizer.drawIndex(data_list, company_list, title=company_list[0] + ' 지수화')
+    # visualizer.save('./imgs/Index.png')
+    # visualizer.clear()
+
+    # visualizer.drawScatter(
+    #     x_data=data_list[0], 
+    #     x_data_name=company_list[0], 
+    #     y_data=data_list[1],
+    #     y_data_name=company_list[1],
+    #     title='산점도'
+    # )
+    # visualizer.save('./imgs/SCATTER1.png')
+    # visualizer.clear()
+
+
+    # visualizer.drawMDD(data_list[0], title=company_list[0] + '최대 손실 낙폭')
+    # visualizer.save('./imgs/MDD.png')
 
 
 

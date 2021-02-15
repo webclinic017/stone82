@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from scipy import stats
 import threading
 
 lock = threading.Lock()
@@ -20,6 +21,13 @@ class Analyzer:
         return dpc.cumsum()
 
 
+    def getIndex(self, data):
+        """ return daily percent changes """
+
+        return (data['close'] / data['close'][0]) * 100
+       
+
+
     def getDrawDown(self, data, window=224):
         """ return maximum draw down """
         peak = data['close'].rolling(window, min_periods=1 ).max()
@@ -36,7 +44,9 @@ class Analyzer:
         return data['close'].rolling(MA).mean()
 
          
+    def getLinerRegress(self, data_x, data_y):
 
+        return stats.linregress(data_x, data_y)
 
         # with lock:
         #     self.fig.savefig(path)

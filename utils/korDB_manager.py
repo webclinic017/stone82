@@ -97,7 +97,7 @@ class KoreaDB_manager():
 
 
     # --------------------------- Data Crawling --------------------------- #
-    def getDataFromYahoo(self, code, start, end):
+    def getDataFromYahoo(self, code, start, end=None):
 
         return pdr_data.get_data_yahoo(code, start, end)
 
