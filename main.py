@@ -26,30 +26,6 @@ def getArgs():
 
 
 
-# def get_charts(data_manager, data_loader, company_dict, img_dir):
-
-#     KOSPI_data = data_loader.data_from_yahoo('^KS11', start, end)
-#     for code,name in company_dict.items():
-#         if code == 'type' : continue
-#         print(f'processing {code}:{name}. . .')
-#         try:
-#             data = data_loader.data_from_yahoo(code, start, end)
-#             data_manager.load_data(data)
-#             data_manager.plot(name, code)
-#             data_manager.add_MA_line('5')
-#             data_manager.add_MA_line('20')
-#             data_manager.add_MA_line('60')
-#             data_manager.add_MA_line('224')
-#             data_manager.add_ref_line(KOSPI_data, name='KOSPI')
-#             save_path = os.path.join(img_dir, name +'.png')
-#             data_manager.save(save_path)
-#             data_manager.clear()
-#         except:
-#             print(f'[ERROR!] please check name: {code}')
-
-
-
-
 if __name__ == "__main__":
 
 
@@ -61,126 +37,61 @@ if __name__ == "__main__":
 
 
 
-    company_list = ['TLT', '^KS11']
-    #company_list = ['RCL' ,'NCLH']
-    data_list=[]
-
-    for company in company_list:
-
-        data= manager.getDataFromYahoo(company,'2018-01-04')
-        data = data.rename(columns={'Date':'date','Close':'close',
-            'Open':'open','High':'high','Low':'low','Volume':'volume'})
-        data_list.append(data)
-
-    # visualizer.drawCandleStick(data_list[0], company_list[0])
-    # visualizer.save('./imgs/CANDLE.png')
-    # visualizer.clear()
-
-    # visualizer.drawDPC(data_list, company_list, title=company_list[0] +'관련주식')
-    # visualizer.save('./imgs/DPC.png')
-
-    visualizer.drawScatter(
-        x_data=data_list[0], 
-        x_data_name=company_list[0], 
-        y_data=data_list[1],
-        y_data_name=company_list[1],
-        title='산점도'
-    )
-    visualizer.save('./imgs/scatter_plot.png')
-    visualizer.clear()
-
-
     # ------------------------  COMPLETE ------------------------- #    
-    company_list = ['삼성전자', 'NAVER']
-    data_list=[]
+    company_list = ['삼성전자', 'NAVER', 'LG화학', '메디톡스', '에프에스티'] # ['RCL' ,'NCLH']
+    company_list = ['NCLH', 'rcl', 'ccl', 'cuk']
+    data_dict = {}
 
 
+    # # data prepare
+    # for company in company_list:
+    #     data_dict[company] = db.getDailyPrice(company, start_date='2018-01-01',end_date='2020-12-31')
+    
     for company in company_list:
-        data = db.getDailyPrice(company, start_date='2018-06-01',end_date='2020-12-01')
-        data_list.append(data)
+        data = manager.getDataFromYahoo(company,'2018-01-04')
+        data_dict[company] = data.rename(columns={'Date':'date','Close':'close',
+            'Open':'open','High':'high','Low':'low','Volume':'volume'})
+        
+        #data_list.append(data)
 
 
+    # # candle stick plot
     # visualizer.drawCandleStick(
-    #     data_list[0], 
+    #     data_dict[company_list[0]], 
     #     start_date=None, 
     #     end_date=None, 
     #     title=company_list[0]+ ' 양봉차트', 
     #     add_ma=True
     # )
-    # visualizer.save('./imgs/CANDLE.png')
+    # visualizer.save('./imgs/CANDLE1.png')
     # visualizer.clear()
 
-
-    # visualizer.drawDPC(data_list, company_list, title=company_list[0] + ' 관련주식')
-    # visualizer.save('./imgs/DPC.png')
-    # visualizer.clear()
-
-
-    # visualizer.drawIndex(data_list, company_list, title=company_list[0] + ' 지수화')
-    # visualizer.save('./imgs/Index.png')
-    # visualizer.clear()
-
+    # # scatter plot
     # visualizer.drawScatter(
-    #     x_data=data_list[0], 
+    #     x_data=data_dict[company_list[0]], 
     #     x_data_name=company_list[0], 
-    #     y_data=data_list[1],
+    #     y_data=data_dict[company_list[1]],
     #     y_data_name=company_list[1],
     #     title='산점도'
     # )
     # visualizer.save('./imgs/SCATTER1.png')
     # visualizer.clear()
 
+    # # Daily percent changes
+    # visualizer.drawDPC(data_dict, title=company_list[0] + ' 관련주식')
+    # visualizer.save('./imgs/DPC1.png')
+    # visualizer.clear()
 
-    # visualizer.drawMDD(data_list[0], title=company_list[0] + '최대 손실 낙폭')
-    # visualizer.save('./imgs/MDD.png')
+    # # Index plot
+    # visualizer.drawIndex(data_dict, title=company_list[0] + ' 지수화')
+    # visualizer.save('./imgs/Index1.png')
+    # visualizer.clear()
 
+    # # Maximum Drawn Down
+    # visualizer.drawMDD(data_dict[company_list[0]], title=company_list[0] + '최대 손실 낙폭')
+    # visualizer.save('./imgs/MDD1.png')
 
+    visualizer.drawEfficFront(data_dict)
+    visualizer.save('./imgs/EF.png')
+    visualizer.clear()
 
-
-
-
-
-
-
-
-
-    # data_loader.addCodeList('./data/korea/code.xls')
-
-    # name = '삼성전자'
-    # code = data_loader.getCode(name)
- 
-    # #data = data_loader.getDataFromNaver(code=code,pages_to_fetch=3)
-    # data = data_loader.getDataFromNaver(code=code,pages_to_fetch=3)
-
-    # print(data)
-
-
-
-
-    # kospi_img_dir='./img/kospi'
-    # kosdaq_img_dir='./img/kosdaq'
-    # os.system(
-    #     "mkdir -p {kospi_dir} {kosdaq_dir}".format(
-    #         kospi_dir=kospi_img_dir, kosdaq_dir=kosdaq_img_dir)
-    # )
-
-
-    # # ----------------------- main ------------------------- #
-    # target_dict = battery_dict
-    # section_dir = os.path.join('img',target_dict['type'])
-    # os.system("mkdir -p {dir}".format(dir=section_dir))
-    # get_charts(data_manager, data_loader, target_dict, section_dir)
-
-
-    # # ------------------------------------------------- #
-    # KOSPI_data = data_loader.data_from_yahoo('^KS11', start, end)
-    # img_dir = kospi_img_dir
-    # for code, name in target_dict.items():
-    #     print(code,name)
-    #     if code == 'type' : continue
-    #     data = data_loader.data_from_yahoo(code, start, end)
-    #     data_manager.load_data(data)
-    #     data_manager.plot(name, code)
-    #     data_manager.add_ref_line(KOSPI_data, name='KOSPI')
-    #     save_path = os.path.join(img_dir, name +'.png')
-    #     data_manager.save(save_path)

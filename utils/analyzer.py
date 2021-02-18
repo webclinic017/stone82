@@ -2,14 +2,16 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from scipy import stats
 import threading
+import pandas as pd
+
 
 lock = threading.Lock()
 
-class Analyzer:
+class Analyzer():
 
-    def __init__(self, vnet=False):
-
-        pass
+    def __init__(self, NUM_D_of_Y=224, vnet=False):
+        self.num_day_of_year= NUM_D_of_Y
+        print(self.num_day_of_year)
     
 
     def getDailyPercChanges(self, data):
@@ -44,12 +46,50 @@ class Analyzer:
         return data['close'].rolling(MA).mean()
 
          
-    def getLinerRegress(self, data_x, data_y):
+    def getLinearRegress(self, data_x, data_y):
 
         return stats.linregress(data_x, data_y)
 
         # with lock:
         #     self.fig.savefig(path)
+
+
+    def getEfficFront(self, data_dict, no_risk=0):
+
+        df = pd.DataFrame()
+        for name, data in data_dict.items():
+            df[name] = data['close']
+        
+        daily_ret = df.pct_change()
+        annual_ret = daily_ret.mean() * self.num_day_of_year
+        daily_cov = daily_ret.cov()
+        annual_cov = daily_cov * self.num_day_of_year
+
+        port_ret = [] 
+        port_risk = [] 
+        port_weights = [] 
+        sharpe_ratio = []
+
+        for _ in range(20000): 
+            weights = np.random.random(len(data_dict)) 
+            weights /= np.sum(weights) 
+
+            returns = np.dot(weights, annual_ret) 
+            risk = np.sqrt(np.dot(weights.T, np.dot(annual_cov, weights))) 
+
+            port_ret.append(returns) 
+            port_risk.append(risk) 
+            port_weights.append(weights) 
+            sharpe_ratio.append((returns-no_risk)/risk)
+
+        portfolio = {'returns': port_ret, 'risk': port_risk, 'sharpe': sharpe_ratio} 
+
+        for idx, company  in enumerate(data_dict.keys()):
+            portfolio[company] = [weight[idx] for weight in port_weights] 
+
+
+        return pd.DataFrame(portfolio) 
+        # df2 = df2[['returns', 'risk'] + [company for company in data_dict.keys()]] 
 
     # def prepare(self, chart_data, title):
 

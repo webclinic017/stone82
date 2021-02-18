@@ -6,17 +6,15 @@ import matplotlib.ticker as ticker
 import pandas as pd
 from utils.analyzer import Analyzer
 from datetime import datetime
+import copy
+import numpy as np
 
-
-
-#FONT_PATH = '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
-# FONT_NAME = fm.FontProperties(fname=FONT_PATH, size=18).get_name()
-# matplotlib.rc('font',family=FONT_NAME)
+NUM_D_of_Y=224
 
 matplotlib.rcParams['axes.unicode_minus'] = False
 plt.rcParams['font.family'] = 'NanumGothic'
 plt.rcParams['font.size'] = 12
-analyzer = Analyzer()
+analyzer = Analyzer(NUM_D_of_Y)
 
 class Visualizer:
 
@@ -25,7 +23,7 @@ class Visualizer:
 
         self.fig = None
         self.COLORS = ['r', 'b--', 'g', 'c--', 'k' , 'y--']
-        self.MA_NUMS= [5, 20, 60, 224]
+        self.MA_NUMS= [5, 20, 60, NUM_D_of_Y]
 
 
 
@@ -107,20 +105,20 @@ class Visualizer:
 
 
 
-    def drawIndex(self, data_list, data_name_list, title='Index'):
+    def drawIndex(self, data_dict, title='Index'):
         """ ploting index  """
 
-        assert (len(data_list) == len(data_name_list)) 
-        assert (len(data_list) <= len(self.COLORS))
+        assert (len(data_dict) <= len(self.COLORS))
+        color_list = copy.deepcopy(self.COLORS)
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
         top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
 
         # draw DPC chart
-        for i in range(len(data_list)):
-            index_data = analyzer.getIndex(data_list[i])
-            top_axes.plot(data_list[i].index, index_data, self.COLORS[i], label=data_name_list[i])
+        for name, data in data_dict.items():
+            index_data = analyzer.getIndex(data)
+            top_axes.plot(data.index, index_data, color_list.pop(0), label=name)
 
 
         # title 
@@ -143,7 +141,7 @@ class Visualizer:
         df = df.fillna(method='bfill')
         df = df.fillna(method='ffill')
 
-        regress = analyzer.getLinerRegress(df['X'],df['Y'])
+        regress = analyzer.getLinearRegress(df['X'],df['Y'])
         regress_line = f'Y = {regress.slope:.2f} * X + {regress.intercept:.2f}'
 
         top_axes.set_title(title + f' (R = {regress.rvalue:.2f})', fontsize=30)
@@ -154,21 +152,22 @@ class Visualizer:
         top_axes.legend([regress_line, f'{x_data_name} x {y_data_name}'],loc='best',fontsize=15)
 
 
-    def drawDPC(self, data_list, data_name_list, title='Daily Percent Changes'):
+    def drawDPC(self, data_dict, title='Daily Percent Changes'):
         
         """ ploting daily percent changes """
 
-        assert (len(data_list) == len(data_name_list)) 
-        assert (len(data_list) <= len(self.COLORS))
+        assert (len(data_dict) <= len(self.COLORS))
+
+        color_list = copy.deepcopy(self.COLORS)
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
         top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
 
         # draw DPC chart
-        for i in range(len(data_list)):
-            data_dpc_cs = analyzer.getDailyPercChanges(data_list[i])
-            top_axes.plot(data_list[i].index, data_dpc_cs, self.COLORS[i], label=data_name_list[i])
+        for name, data in data_dict.items():
+            data_dpc_cs = analyzer.getDailyPercChanges(data)
+            top_axes.plot(data.index, data_dpc_cs, color_list.pop(0), label=name)
 
         # title 
         top_axes.set_title(title, fontsize=30)
@@ -176,6 +175,32 @@ class Visualizer:
         top_axes.set_ylabel('Changes (%)', fontsize=15)
         top_axes.grid(True)
         top_axes.legend(loc='best',fontsize=15)
+
+
+    def drawEfficFront(self, data_dict, title='Efficient Frontier' ):
+        """ ploting efficient frontier """
+
+        # set fig
+        self.fig = plt.figure(figsize=(20, 10))
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
+
+        df = analyzer.getEfficFront(data_dict)
+
+        max_sharpe = df.loc[df['sharpe'] == df['sharpe'].max()]
+        min_risk = df.loc[df['risk'] == df['risk'].min()]
+
+        print(max_sharpe)
+        print(min_risk)
+
+        top_axes.set_title(title, fontsize=30)
+        top_axes.scatter(x=df['risk'], y=df['returns'], c=df['sharpe'], cmap='viridis', edgecolors='k', marker='.')
+        top_axes.grid(True)
+        top_axes.scatter(x=max_sharpe['risk'], y=max_sharpe['returns'], c='r', marker='*', s=300)
+        top_axes.scatter(x=min_risk['risk'], y=min_risk['returns'], c='r', marker='X', s=300)
+        top_axes.set_xlabel('Risk', fontsize=15)
+        top_axes.set_ylabel('Expected returns', fontsize=15)
+        top_axes.legend(['porfoilo', 'max_sharpe', 'min_risk'],loc='best',fontsize=15)
+
 
 
     def add_MA_line(self, num_MA):
