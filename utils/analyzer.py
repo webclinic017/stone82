@@ -10,8 +10,8 @@ lock = threading.Lock()
 class Analyzer():
 
     def __init__(self, NUM_D_of_Y=224, vnet=False):
+
         self.num_day_of_year= NUM_D_of_Y
-        print(self.num_day_of_year)
     
 
     def getDailyPercChanges(self, data):
@@ -34,7 +34,7 @@ class Analyzer():
         """ return maximum draw down """
         peak = data['close'].rolling(window, min_periods=1 ).max()
         drawdown = data['close']/peak - 1.0
-        max_drawdown = drawdown.rolling(window,min_periods=1).min()
+        max_drawdown = drawdown.rolling(window, min_periods=1).min()
 
         return drawdown, max_drawdown
 
@@ -91,6 +91,64 @@ class Analyzer():
         return pd.DataFrame(portfolio) 
         # df2 = df2[['returns', 'risk'] + [company for company in data_dict.keys()]] 
 
+
+    def getTrndBolnBand(self, data, MA_num=20, MFI_num=10):
+        
+        moving_avg = 'MA-' + str(MA_num)
+        MFI = 'MFI-' + str(MFI_num)
+
+        data[moving_avg] = data['close'].rolling(window=MA_num).mean()
+        data['stddev'] = data['close'].rolling(window=MA_num).std()
+        data['upper'] = data[moving_avg] + (data['stddev'] * 2)
+        data['lower'] = data[moving_avg] - (data['stddev'] * 2)
+        data['PB'] = (data['close'] - data['lower']) / (data['upper'] - data['lower'])
+        data['BW'] = (data['upper'] - data['lower']) / (data[moving_avg]) * 100
+        data['TP'] = (data['high'] + data['low'] + data['close']) / 3
+        data['PMF'] = 0
+        data['NMF'] = 0
+
+        for i in range(len(data.close)-1):
+            if data.TP.values[i] < data.TP.values[i+1]:
+                data.PMF.values[i+1] = data.TP.values[i+1] * data.volume.values[i+1]
+                data.NMF.values[i+1] = 0
+            else:
+                data.NMF.values[i+1] = data.TP.values[i+1] * data.volume.values[i+1]
+                data.PMF.values[i+1] = 0
+        data['MFR'] = (data.PMF.rolling(window=MFI_num).sum() / 
+            data.NMF.rolling(window=MFI_num).sum())
+        data[MFI] = 100 - 100 / (1 + data['MFR'])
+
+
+        return data[MA_num-1:]
+
+
+
+    def getRvrsdBolnBand(self, data, MA_num=20, IIP_num=21):
+        
+        moving_avg = 'MA-' + str(MA_num)
+        IIP = 'IIP-' + str(IIP_num)
+
+        data[moving_avg] = data['close'].rolling(window=MA_num).mean()
+        data['stddev'] = data['close'].rolling(window=MA_num).std()
+        data['upper'] = data[moving_avg] + (data['stddev'] * 2)
+        data['lower'] = data[moving_avg] - (data['stddev'] * 2)
+        data['PB'] = (data['close'] - data['lower']) / (data['upper'] - data['lower'])
+
+        data['II'] = (2*data['close']-data['high']-data['low']) / (data['high']-data['low'])*data['volume']  
+        data[IIP] = data['II'].rolling(window=IIP_num).sum() /data['volume'].rolling(window=IIP_num).sum()*100  
+        
+        return data.dropna()
+
+
+
+
+
+
+
+    # def getMFI(self, data, num_window=10):
+
+
+    #     return data
     # def prepare(self, chart_data, title):
 
     #     self.title = title

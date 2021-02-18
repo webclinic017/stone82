@@ -38,21 +38,20 @@ if __name__ == "__main__":
 
 
     # ------------------------  COMPLETE ------------------------- #    
-    company_list = ['삼성전자', 'NAVER', 'LG화학', '메디톡스', '에프에스티'] # ['RCL' ,'NCLH']
-    company_list = ['NCLH', 'rcl', 'ccl', 'cuk']
+    #company_list = ['하이록코리아', 'NAVER', 'LG화학', '메디톡스', '에프에스티'] # ['RCL' ,'NCLH']
+    company_list = ['NCLH'] #['NCLH', 'rcl', 'ccl', 'cuk']
     data_dict = {}
 
 
-    # # data prepare
+    # data prepare
     # for company in company_list:
-    #     data_dict[company] = db.getDailyPrice(company, start_date='2018-01-01',end_date='2020-12-31')
+    #     data_dict[company] = db.getDailyPrice(company, start_date='2020-01-01',end_date='2021-02-19')
     
     for company in company_list:
-        data = manager.getDataFromYahoo(company,'2018-01-04')
+        data = manager.getDataFromYahoo(company,'2020-04-01')
         data_dict[company] = data.rename(columns={'Date':'date','Close':'close',
             'Open':'open','High':'high','Low':'low','Volume':'volume'})
         
-        #data_list.append(data)
 
 
     # # candle stick plot
@@ -91,7 +90,15 @@ if __name__ == "__main__":
     # visualizer.drawMDD(data_dict[company_list[0]], title=company_list[0] + '최대 손실 낙폭')
     # visualizer.save('./imgs/MDD1.png')
 
-    visualizer.drawEfficFront(data_dict)
-    visualizer.save('./imgs/EF.png')
+    # visualizer.drawEfficFrnt(data_dict)
+    # visualizer.save('./imgs/EF.png')
+    # visualizer.clear()
+
+    visualizer.drawTrndBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (추세추종)')
+    visualizer.save('./imgs/BB_trend.png')
     visualizer.clear()
 
+
+    visualizer.drawRvrsBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (반전매매)')
+    visualizer.save('./imgs/BB_reverse.png')
+    visualizer.clear()

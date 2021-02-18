@@ -26,7 +26,7 @@ class Visualizer:
         self.MA_NUMS= [5, 20, 60, NUM_D_of_Y]
 
 
-
+    # ------------------------- Plotting funct. ------------------------- #
     def drawCandleStick(self, data, start_date, end_date, title='Candle chart', add_ma=False):
         """ Ploting basic candle stick chart """
 
@@ -104,7 +104,6 @@ class Visualizer:
         plt.tight_layout()
 
 
-
     def drawIndex(self, data_dict, title='Index'):
         """ ploting index  """
 
@@ -158,11 +157,11 @@ class Visualizer:
 
         assert (len(data_dict) <= len(self.COLORS))
 
-        color_list = copy.deepcopy(self.COLORS)
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
         top_axes = plt.subplot2grid((4,4), (0,0), rowspan=4, colspan=4)
+        color_list = ['r', 'b', 'g', 'c', 'k' , 'y']
 
         # draw DPC chart
         for name, data in data_dict.items():
@@ -177,7 +176,7 @@ class Visualizer:
         top_axes.legend(loc='best',fontsize=15)
 
 
-    def drawEfficFront(self, data_dict, title='Efficient Frontier' ):
+    def drawEfficFrnt(self, data_dict, title='Efficient Frontier' ):
         """ ploting efficient frontier """
 
         # set fig
@@ -189,9 +188,6 @@ class Visualizer:
         max_sharpe = df.loc[df['sharpe'] == df['sharpe'].max()]
         min_risk = df.loc[df['risk'] == df['risk'].min()]
 
-        print(max_sharpe)
-        print(min_risk)
-
         top_axes.set_title(title, fontsize=30)
         top_axes.scatter(x=df['risk'], y=df['returns'], c=df['sharpe'], cmap='viridis', edgecolors='k', marker='.')
         top_axes.grid(True)
@@ -202,6 +198,113 @@ class Visualizer:
         top_axes.legend(['porfoilo', 'max_sharpe', 'min_risk'],loc='best',fontsize=15)
 
 
+    def drawTrndBolnBand(self, data, MA_num=20, MFI_num=10, title='Bollinger Band'):
+        """ ploting Bollinger Band """
+
+        moving_avg = 'MA-'+ str(MA_num)
+        MFI = 'MFI-' + str(MFI_num)
+
+        df = analyzer.getTrndBolnBand(data, MA_num, MFI_num=10)
+
+
+        # set fig
+        self.fig = plt.figure(figsize=(20, 15))
+        top_axes = plt.subplot2grid((5,5), (0,0), rowspan=3, colspan=5)
+        mid_axes = plt.subplot2grid((5,5), (3,0), rowspan=1, colspan=5)
+        mid_axes.get_yaxis().get_major_formatter().set_scientific(False)
+        bottom_axes = plt.subplot2grid((5,5), (4,0), rowspan=1, colspan=5)
+        bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
+
+        # top axis
+        top_axes.plot(df.index, df['close'], color='#0000ff', label='Close')
+        top_axes.plot(df.index, df['upper'], 'r--', label='Upper Band')
+        top_axes.plot(df.index, df[moving_avg], 'k--', label=moving_avg)
+        top_axes.plot(df.index, df['lower'], 'c--', label='Lower Band')
+        top_axes.fill_between(df.index, df['upper'], df['lower'], color='0.9')
+        top_axes.set_title(title, fontsize=30)
+        top_axes.set_ylabel('Price', fontsize=15)
+        top_axes.legend(loc='best',fontsize=15)
+
+
+        # mid axis
+        mid_axes.plot(df.index, df['PB'] * 100, color='b', label='%B x 100')
+        mid_axes.plot(df.index, df[MFI], 'g--', label=f'MFI({MFI_num} day)')
+        mid_axes.grid(True)
+        mid_axes.set_ylabel('%B x 100', fontsize=10)
+        mid_axes.legend(loc='best',fontsize=10)
+
+
+        # bottom axis
+        bottom_axes.plot(df.index, df['BW'], color='m', label='Bandwidth')
+        bottom_axes.grid(True)
+        bottom_axes.set_ylabel('Bandwidth (%)', fontsize=15)
+        bottom_axes.set_xlabel('Date', fontsize=15)
+
+        # sell & buy
+        for i in range(len(df.close)):
+            if df['PB'].values[i] > 0.8 and df[MFI].values[i] > 80: 
+                top_axes.plot(df.index.values[i], df.close.values[i], 'r^') 
+                mid_axes.plot(df.index.values[i], df[MFI].values[i], 'r^') 
+                bottom_axes.plot(df.index.values[i], df['BW'].values[i], 'r^') 
+            elif df['PB'].values[i] < 0.2 and df[MFI].values[i] < 20:   
+                top_axes.plot(df.index.values[i], df.close.values[i], 'bv')  
+                mid_axes.plot(df.index.values[i], df[MFI].values[i], 'bv')  
+                bottom_axes.plot(df.index.values[i], df['BW'].values[i], 'bv')  
+
+
+    def drawRvrsBolnBand(self, data, MA_num=20, IIP_num=21, title='Bollinger Band'):
+        """ ploting Bollinger Band """
+
+        moving_avg = 'MA-'+ str(MA_num)
+        IIP = 'IIP-' + str(IIP_num)
+
+        df = analyzer.getRvrsdBolnBand(data, MA_num, IIP_num)
+
+        # set fig
+        self.fig = plt.figure(figsize=(20, 15))
+        top_axes = plt.subplot2grid((5,5), (0,0), rowspan=3, colspan=5)
+        mid_axes = plt.subplot2grid((5,5), (3,0), rowspan=1, colspan=5)
+        mid_axes.get_yaxis().get_major_formatter().set_scientific(False)
+        bottom_axes = plt.subplot2grid((5,5), (4,0), rowspan=1, colspan=5)
+        bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
+
+        # top axis
+        top_axes.plot(df.index, df['close'], color='#0000ff', label='Close')
+        top_axes.plot(df.index, df['upper'], 'r--', label='Upper Band')
+        top_axes.plot(df.index, df[moving_avg], 'k--', label=moving_avg)
+        top_axes.plot(df.index, df['lower'], 'c--', label='Lower Band')
+        top_axes.fill_between(df.index, df['upper'], df['lower'], color='0.9')
+        top_axes.set_title(title, fontsize=30)
+        top_axes.set_ylabel('Price', fontsize=15)
+        top_axes.legend(loc='best',fontsize=15)
+
+
+        # mid axis
+        mid_axes.plot(df.index, df['PB'] * 100, color='b', label='%B x 100')
+        mid_axes.grid(True)
+        mid_axes.set_ylabel('%B x 100', fontsize=10)
+
+
+        # bottom axis
+        bottom_axes.bar(df.index, df[IIP], color='g', label='Bandwidth')
+        bottom_axes.grid(True)
+        bottom_axes.set_ylabel(f'II {IIP_num}day (%)', fontsize=15)
+        bottom_axes.set_xlabel('Date', fontsize=15)
+
+        # sell & buy
+        for i in range(len(df.close)):
+            if df['PB'].values[i] < 0.05 and df[IIP].values[i] > 0: 
+                top_axes.plot(df.index.values[i], df.close.values[i], 'r^') 
+                mid_axes.plot(df.index.values[i], df['PB'].values[i], 'r^') 
+                bottom_axes.plot(df.index.values[i], df[IIP].values[i], 'r^') 
+            elif df['PB'].values[i] > 0.95 and df[IIP].values[i] < 0:   
+                top_axes.plot(df.index.values[i], df.close.values[i], 'bv')  
+                mid_axes.plot(df.index.values[i], df['PB'].values[i], 'bv')  
+                bottom_axes.plot(df.index.values[i], df[IIP].values[i], 'bv')
+
+
+
+    # ------------------------- Additional funct. ------------------------- #
 
     def add_MA_line(self, num_MA):
         """ Adding movie average line """
