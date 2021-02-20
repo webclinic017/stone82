@@ -52,7 +52,6 @@ class KoreaDB_manager():
         self.connection.commit()
         self.code_dict = dict()
 
-
     def __del__(self):
         """ destructor: MariaDB disconnection   """
         self.connection.close() 
@@ -236,7 +235,7 @@ if __name__ == '__main__':
 
     data_loader = KoreaDB_manager()
     data_loader.updateCompanyInfo()
-    data_loader.updateDailyPrice(100)
+    data_loader.updateDailyPrice(1)
     # data_loader.executeDaily('config/kor_DB.config')
 
 

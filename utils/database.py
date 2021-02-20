@@ -2,6 +2,7 @@ import pandas as pd
 import pymysql
 from datetime import datetime, timedelta
 import re
+from utils.korDB_manager import KoreaDB_manager
 
 PWD='ehfvkfdl123@'
 DB_NAME='KOR_DB'
@@ -13,13 +14,26 @@ class DataBase:
 
         self.connection = pymysql.connect(host='localhost', port=3306, db=DB_NAME, 
             user='root', passwd=PWD, autocommit=True)  
-
         self.code_dict = dict()
         self.getCompanyInfo()
         
     def __del__(self):
         """소멸자: MariaDB 연결 해제"""
         self.connection.close()
+
+
+    def getCode(self, target_name):
+        for code, name in self.code_dict.items():
+            if name == target_name: 
+                return code
+            else:
+                "Can't find code! please check company name again"
+
+
+    def getName(self, code):
+        return self.code_dict[code]
+
+        
 
     def getCompanyInfo(self):
         """company_info 테이블에서 읽어와서 companyData와 codes에 저장"""
@@ -94,18 +108,132 @@ class DataBase:
             f" and date >= '{start_date}' and date <= '{end_date}'"
         df = pd.read_sql(sql, self.connection)
         df.index = df['date']
+        df = df.drop(['code','date'],axis=1)
         return df 
 
 
-
-    def getCode(self, target_name):
-        for code, name in self.code_dict.items():
-            if name == target_name: 
-                return code
-            else:
-                "Can't find code! please check company name again"
-
-    def getName(self, code):
-        return self.code_dict[code]
-
+    def getRltvMomntm(self, stock_count, start_date, end_date):
         
+        """특정 기간 동안 수익률이 제일 높았던 stock_count 개의 종목들 (상대 모멘텀)
+            - start_date  : 상대 모멘텀을 구할 시작일자 ('2020-01-01')   
+            - end_date    : 상대 모멘텀을 구할 종료일자 ('2020-12-31')
+            - stock_count : 상대 모멘텀을 구할 종목수
+        """       
+        
+        # 사용자가 입력한 시작일자를 DB에서 조회되는 일자로 보정 
+        cursor = self.connection.cursor()
+        sql = f"SELECT max(date) FROM daily_price WHERE date <= '{start_date}'"
+        cursor.execute(sql)
+        result = cursor.fetchone()
+        if (result[0] is None):
+            print ("start_date : {} -> returned None".format(sql))
+            return
+        start_date = result[0].strftime('%Y-%m-%d')
+
+        # 사용자가 입력한 종료일자를 DB에서 조회되는 일자로 보정
+        sql = f"SELECT max(date) FROM daily_price WHERE date <= '{end_date}'"
+        cursor.execute(sql)
+        result = cursor.fetchone()
+        if (result[0] is None):
+            print ("end_date : {} -> returned None".format(sql))
+            return
+        end_date = result[0].strftime('%Y-%m-%d')
+
+        print(start_date, end_date)
+        # KRX 종목별 수익률을 구해서 2차원 리스트 형태로 추가
+        rows = []
+        columns = ['code', 'company', 'old_price', 'new_price', 'returns']
+
+        for code, company in self.code_dict.items():  
+            sql = f"select close from daily_price "\
+                f"where code='{code}' and date='{start_date}'"
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            if (result is None):
+                continue
+            old_price = int(result[0])
+            sql = f"select close from daily_price "\
+                f"where code='{code}' and date='{end_date}'"
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            if (result is None):
+                continue
+            new_price = int(result[0])
+            returns = (new_price / old_price - 1) * 100
+            rows.append([code, company, old_price, new_price, 
+                returns])
+
+        # 상대 모멘텀 데이터프레임을 생성한 후 수익률순으로 출력
+        df = pd.DataFrame(rows, columns=columns)
+        df = df[['code', 'company', 'old_price', 'new_price', 'returns']]
+        df = df.sort_values(by='returns', ascending=False)
+        df = df.head(stock_count)
+        df.index = pd.Index(range(stock_count))
+        print(df)
+        print(f"\nRelative momentum ({start_date} ~ {end_date}) : "\
+            f"{df['returns'].mean():.2f}% \n")
+        return df
+
+
+    def getAbsMomntm(self, rltv_momentum, start_date, end_date):
+        """특정 기간 동안 상대 모멘텀에 투자했을 때의 평균 수익률 (절대 모멘텀)
+            - rltv_momentum : get_rltv_momentum() 함수의 리턴값 (상대 모멘텀)
+            - start_date    : 절대 모멘텀을 구할 매수일 ('2020-01-01')   
+            - end_date      : 절대 모멘텀을 구할 매도일 ('2020-12-31')
+        """
+        stockList = list(rltv_momentum['code'])        
+
+        # 사용자가 입력한 매수일을 DB에서 조회되는 일자로 변경 
+        sql = f"select max(date) from daily_price "\
+            f"where date <= '{start_date}'"
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+    
+        result = cursor.fetchone()
+        if (result[0] is None):
+            print ("{} -> returned None".format(sql))
+            return
+        start_date = result[0].strftime('%Y-%m-%d')
+
+        # 사용자가 입력한 매도일을 DB에서 조회되는 일자로 변경 
+        sql = f"select max(date) from daily_price "\
+            f"where date <= '{end_date}'"
+        cursor.execute(sql)
+        result = cursor.fetchone()
+        if (result[0] is None):
+            print ("{} -> returned None".format(sql))
+            return
+        end_date = result[0].strftime('%Y-%m-%d')
+
+
+        # 상대 모멘텀의 종목별 수익률을 구해서 2차원 리스트 형태로 추가
+        rows = []
+        columns = ['code', 'company', 'old_price', 'new_price', 'returns']
+
+        for code, company in self.code_dict.items():  
+            sql = f"select close from daily_price "\
+                f"where code='{code}' and date='{start_date}'"
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            if (result is None):
+                continue
+            old_price = int(result[0])
+            sql = f"select close from daily_price "\
+                f"where code='{code}' and date='{end_date}'"
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            if (result is None):
+                continue
+            new_price = int(result[0])
+            returns = (new_price / old_price - 1) * 100
+            rows.append([code, company, old_price, new_price,
+                returns])
+    
+        # 절대 모멘텀 데이터프레임을 생성한 후 수익률순으로 출력
+        df = pd.DataFrame(rows, columns=columns)
+        df = df[['code', 'company', 'old_price', 'new_price', 'returns']]
+        df = df.sort_values(by='returns', ascending=False)
+        print(df)
+        print(f"\nAbasolute momentum ({start_date} ~ {end_date}) : "\
+            f"{df['returns'].mean():.2f}%")
+        return df

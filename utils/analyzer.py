@@ -148,10 +148,15 @@ class Analyzer():
         macd = ema60 - ema130                 
         signal = macd.ewm(span=45).mean()      
         macdhist = macd - signal               
-
-        return data.assign(ema130=ema130, ema60=ema60, macd=macd, signal=signal,
+        data = data.assign(ema130=ema130, ema60=ema60, macd=macd, signal=signal,
             macdhist=macdhist).dropna() 
-            
+
+        ndays_high = data['high'].rolling(window=14, min_periods=1).max()     
+        ndays_low = data['low'].rolling(window=14, min_periods=1).min()       
+        fast_k = (data['close'] - ndays_low) / (ndays_high - ndays_low) * 100  
+        slow_d= fast_k.rolling(window=3).mean()                           
+        return  data.assign(fast_k=fast_k, slow_d=slow_d).dropna()             
+
         #data['number'] = data.index.map(mdates.date2num)  
 
         

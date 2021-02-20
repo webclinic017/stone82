@@ -6,12 +6,9 @@ from utils.visualizer import Visualizer
 from utils.database import DataBase
 from utils.section import *
 
-from datetime import datetime
 
-
-start = datetime(2019,1,1)
-end = datetime(2021,1,24)
-
+# START = datetime(2019,1,1)
+# END = datetime(2021,1,24)
 
 
 def getArgs():
@@ -37,20 +34,26 @@ if __name__ == "__main__":
 
 
 
-    # ------------------------  COMPLETE ------------------------- #    
-    #company_list = ['하이록코리아', 'NAVER', 'LG화학', '메디톡스', '에프에스티'] # ['RCL' ,'NCLH']
-    company_list = ['AAPL', 'NCLH'] #['NCLH', 'rcl', 'ccl', 'cuk']
+
+    # ------------------------  COMPLETE ------------------------- #  
+    START='2019-06-01'
+    END='2021-02-21'
+    company_list = ['휴먼엔','엔씨소프트'] # ['RCL' ,'NCLH']
+    #company_list = ['NCLH'] #['NCLH', 'rcl', 'ccl', 'cuk']
     data_dict = {}
 
-
     # data prepare
-    # for company in company_list:
-    #     data_dict[company] = db.getDailyPrice(company, start_date='2020-01-01',end_date='2021-02-19')
-    
     for company in company_list:
-        data = manager.getDataFromYahoo(company,'2017-04-01')
-        data_dict[company] = data.rename(columns={'Date':'date','Close':'close',
-            'Open':'open','High':'high','Low':'low','Volume':'volume'})
+        data_dict[company] = db.getDailyPrice(company, start_date=START,end_date=END)
+
+    df_rltv = db.getRltvMomntm(30, '2021-01-01','2021-02-21')
+
+#    df_abs = db.getAbsMomntm(df_rltv, '2021-01-01', '2021-02-21')
+
+    # for company in company_list:
+    #     data = manager.getDataFromYahoo(company,'2017-04-01')
+    #     data_dict[company] = data.rename(columns={'Date':'date','Close':'close',
+    #         'Open':'open','High':'high','Low':'low','Volume':'volume'})
         
 
 
@@ -92,15 +95,17 @@ if __name__ == "__main__":
     # visualizer.save('./imgs/ef.png')
     # visualizer.clear()
 
-    # visualizer.drawTrndBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (추세추종)')
-    # visualizer.save('./imgs/BB_trend.png')
-    # visualizer.clear()
+    visualizer.drawTrndBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (추세추종)')
+    visualizer.save('./imgs/BB_trend.png')
+    visualizer.clear()
 
 
-    # visualizer.drawRvrsBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (반전매매)')
-    # visualizer.save('./imgs/BB_reverse.png')
-    # visualizer.clear()
+    visualizer.drawRvrsBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (반전매매)')
+    visualizer.save('./imgs/BB_reverse.png')
+    visualizer.clear()
 
-    visualizer.drawTrplScrnTrd(data_dict[company_list[0]], title=company_list[0] +' 삼중창 매매')
+    visualizer.drawTrplScrnTrd(
+        data_dict[company_list[0]], 
+        title=company_list[0] +' 삼중창 매매')
     visualizer.save('./imgs/Triple.png')
     visualizer.clear()

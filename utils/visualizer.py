@@ -29,12 +29,14 @@ class Visualizer:
 
 
     # ------------------------- Plotting funct. ------------------------- #
-    def drawCandleStick(self, data, start_date="2020-03-01", end_date="2021-03-31", title='Candle chart', add_ma=False):
+    def drawCandleStick(self, data, title='Candle chart', add_ma=False):
         """ Ploting basic candle stick chart """
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
         top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4 )
+        top_axes.get_yaxis().get_major_formatter().set_scientific(False)
+
         bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=top_axes)
         bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
 
@@ -42,13 +44,13 @@ class Visualizer:
 
         # top axes
         if add_ma == True:
-            color_list = ['k--', 'r--', 'g--', 'b--', 'c--' ]
+            color_list = ['k', 'y', 'g', 'orange', 'c' ]
 
             for idx, ma in enumerate(self.MA_NUMS):
                 ma_data = analyzer.getMovingAvg(data, ma)
             
-            dt_range = pd.date_range(start=start_date, end=end_date)
-            data = data[data.index.isin(dt_range)]            
+            # dt_range = pd.date_range(start=start_date, end=end_date)
+            # data = data[data.index.isin(dt_range)]            
             index = data.index.astype('str')
 
             for idx, ma in enumerate(self.MA_NUMS):
@@ -249,11 +251,11 @@ class Visualizer:
         # sell & buy
         for i in range(len(df.close)):
             if df['PB'].values[i] > 0.8 and df[MFI].values[i] > 80: 
-                top_axes.plot(df.index.values[i], df.close.values[i], 'r^') 
+                top_axes.plot(df.index.values[i], df['close'].values[i], 'r^') 
                 mid_axes.plot(df.index.values[i], df[MFI].values[i], 'r^') 
                 bottom_axes.plot(df.index.values[i], df['BW'].values[i], 'r^') 
             elif df['PB'].values[i] < 0.2 and df[MFI].values[i] < 20:   
-                top_axes.plot(df.index.values[i], df.close.values[i], 'bv')  
+                top_axes.plot(df.index.values[i], df['close'].values[i], 'bv')  
                 mid_axes.plot(df.index.values[i], df[MFI].values[i], 'bv')  
                 bottom_axes.plot(df.index.values[i], df['BW'].values[i], 'bv')  
 
@@ -297,39 +299,36 @@ class Visualizer:
         bottom_axes.set_ylabel(f'II {IIP_num}day (%)', fontsize=15)
         bottom_axes.set_xlabel('Date', fontsize=15)
 
-        # sell & buy
+        # strategy of sell & buy 
         for i in range(len(df.close)):
             if df['PB'].values[i] < 0.05 and df[IIP].values[i] > 0: 
-                top_axes.plot(df.index.values[i], df.close.values[i], 'r^') 
+                top_axes.plot(df.index.values[i], df['close'].values[i], 'r^') 
                 mid_axes.plot(df.index.values[i], df['PB'].values[i], 'r^') 
                 bottom_axes.plot(df.index.values[i], df[IIP].values[i], 'r^') 
             elif df['PB'].values[i] > 0.95 and df[IIP].values[i] < 0:   
-                top_axes.plot(df.index.values[i], df.close.values[i], 'bv')  
+                top_axes.plot(df.index.values[i], df['close'].values[i], 'bv')  
                 mid_axes.plot(df.index.values[i], df['PB'].values[i], 'bv')  
                 bottom_axes.plot(df.index.values[i], df[IIP].values[i], 'bv')
 
 
-    def drawTrplScrnTrd(self, data, start_date="2018-03-01", end_date="2021-03-31", title='Triple Screen Trading System'):
+    def drawTrplScrnTrd(self, data, title='Triple Screen Trading System'):
 
 
         # set fig
         self.fig = plt.figure(figsize=(20, 25))
         top_axes = plt.subplot2grid((7,7), (0,0), rowspan=3, colspan=7)
+        top_axes.get_yaxis().get_major_formatter().set_scientific(False)
         mid_axes = plt.subplot2grid((7,7), (3,0), rowspan=2, colspan=7, sharex=top_axes)
         bottom_axes = plt.subplot2grid((7,7), (5,0), rowspan=2, colspan=7,sharex=top_axes)
 
 
 
         df = analyzer.getMACD(data)
-        dt_range = pd.date_range(start=start_date, end=end_date)
-        df = df[df.index.isin(dt_range)]
         index = df.index.astype('str') 
-
 
         # top axis
         top_axes.plot(index, df['ema130'], color='c', label='EMA130')
         candlestick2_ohlc(top_axes, df['open'], df['high'], df['low'], df['close'], width=0.5, colorup='r', colordown='b')
-
         top_axes.legend(loc='best',fontsize=15)
         top_axes.set_title(title, fontsize=30)
         top_axes.set_ylabel('Price', fontsize=15)
@@ -341,10 +340,45 @@ class Visualizer:
         mid_axes.plot(index, df['macd'], color='b', label='MACD')
         mid_axes.plot(index, df['signal'], 'g--', label='MACD-signal')
         mid_axes.grid(True)
-        mid_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
         mid_axes.legend(loc='best',fontsize=15)
 
-        # # index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+
+        # bottom axis
+        bottom_axes.plot(index, df['fast_k'], color='c', label='FAST-K (%)')
+        bottom_axes.plot(index, df['slow_d'], color='k', label='SLOW-D (%)')
+        bottom_axes.set_yticks([0,20,80,100])
+        bottom_axes.grid(True)
+        bottom_axes.legend(loc='best',fontsize=15)
+
+        # strategy of sell & buy 
+        ref='slow_d'
+        for i in range(1, len(df['close'])):
+            if df['ema130'].values[i-1] < df['ema130'].values[i] and df[ref].values[i-1] >= 20 and df[ref].values[i] < 20:
+                top_axes.plot(index[i], df['ema130'].values[i], 'r^') 
+                mid_axes.plot(index[i], df['macd'].values[i], 'r^') 
+                bottom_axes.plot(index[i], df[ref].values[i], 'r^') 
+
+            elif df['macdhist'].values[i-1] >= 0 and df['macdhist'].values[i] <= 0: 
+                top_axes.plot(index[i], df['ema130'].values[i], 'bv') 
+                mid_axes.plot(index[i], df['macd'].values[i], 'bv') 
+                bottom_axes.plot(index[i], df[ref].values[i], 'bv')   
+
+            elif df['macdhist'].values[i-1] <= 0 and df['macdhist'].values[i] >= 0 : 
+                top_axes.plot(index[i], df['ema130'].values[i], 'rv') 
+                mid_axes.plot(index[i], df['macd'].values[i], 'rv') 
+                bottom_axes.plot(index[i], df[ref].values[i], 'rv')                 
+
+
+            # elif df['ema130'].values[i-1] > df['ema130'].values[i] and  df[ref].values[i-1] <= 80 and df[ref].values[i] > 80:
+                # top_axes.plot(index[i], df['ema130'].values[i], 'bv') 
+                # mid_axes.plot(index[i], df['macd'].values[i], 'bv') 
+                # bottom_axes.plot(index[i], df[ref].values[i], 'bv') 
+
+
+
+        bottom_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+
+
 
 
 
