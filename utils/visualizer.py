@@ -1,6 +1,9 @@
 from mplfinance.original_flavor import candlestick2_ohlc
+#from mplfinance import candlestick_ohlc
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
+import matplotlib
+import matplotlib.dates as mdates
 import matplotlib
 import matplotlib.ticker as ticker
 import pandas as pd
@@ -22,49 +25,54 @@ class Visualizer:
     def __init__(self, vnet=False):
 
         self.fig = None
-        self.COLORS = ['r', 'b--', 'g', 'c--', 'k' , 'y--']
-        self.MA_NUMS= [5, 20, 60, NUM_D_of_Y]
+        self.MA_NUMS= [5, 20, 60, 120, NUM_D_of_Y]
 
 
     # ------------------------- Plotting funct. ------------------------- #
-    def drawCandleStick(self, data, start_date, end_date, title='Candle chart', add_ma=False):
+    def drawCandleStick(self, data, start_date="2020-03-01", end_date="2021-03-31", title='Candle chart', add_ma=False):
         """ Ploting basic candle stick chart """
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
-        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4)
+        top_axes = plt.subplot2grid((4,4), (0,0), rowspan=3, colspan=4 )
         bottom_axes = plt.subplot2grid((4,4), (3,0), rowspan=1, colspan=4, sharex=top_axes)
         bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
 
 
-        # draw candle stick chart
-        data = data[data['volume'] > 0]
-        max_high = data['high'].max()
-        min_low = data['low'].min()
-        top_axes.set_ylim([min_low, max_high])
-        candlestick2_ohlc(top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
-        index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
 
-        # TODO: add moving average with MA-224
+        # top axes
         if add_ma == True:
+            color_list = ['k--', 'r--', 'g--', 'b--', 'c--' ]
+
             for idx, ma in enumerate(self.MA_NUMS):
                 ma_data = analyzer.getMovingAvg(data, ma)
+            
+            dt_range = pd.date_range(start=start_date, end=end_date)
+            data = data[data.index.isin(dt_range)]            
+            index = data.index.astype('str')
+
+            for idx, ma in enumerate(self.MA_NUMS):
                 moving_avg = 'MA-'+str(ma)
-                top_axes.plot(index, ma_data, label=moving_avg, linewidth=0.7)
+                top_axes.plot(index, data[moving_avg], color_list.pop(0), label=moving_avg, linewidth=0.7+idx*0.4)
             top_axes.legend(loc='best',fontsize=15)
 
-        # draw volume chart
+        else:
+            dt_range = pd.date_range(start=start_date, end=end_date)
+            data = data[data.index.isin(dt_range)]            
+            index = data.index.astype('str') 
+        
+        candlestick2_ohlc(top_axes, data['open'], data['high'], data['low'], data['close'], width=0.5, colorup='r', colordown='b')
+        top_axes.set_title(title, fontsize=30)
+        top_axes.grid(True)
+        #plt.xticks(rotation = 45)
+
+
+        # bottom axes
         color_fuc = lambda x : 'r' if x >= 0 else 'b'
         color_list = list(data['volume'].diff().fillna(0).apply(color_fuc))
+        bottom_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
         bottom_axes.bar(index, data['volume'], width=0.5, align='center', color=color_list)
-
-        # title setup
-        top_axes.set_title(title, fontsize=30)
-        top_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
-        top_axes.grid(True)
         bottom_axes.set_xlabel('Date', fontsize=15)
-        plt.tight_layout()
-        #plt.xticks(rotation = 45)
 
 
     def drawMDD(self, data, title='MDD chart'):
@@ -129,7 +137,6 @@ class Visualizer:
 
 
     def drawScatter(self, x_data, x_data_name, y_data, y_data_name, title='Scattor plot'):
-
         """ ploting index  """
 
         # # set fig
@@ -152,7 +159,6 @@ class Visualizer:
 
 
     def drawDPC(self, data_dict, title='Daily Percent Changes'):
-        
         """ ploting daily percent changes """
 
         assert (len(data_dict) <= len(self.COLORS))
@@ -303,6 +309,44 @@ class Visualizer:
                 bottom_axes.plot(df.index.values[i], df[IIP].values[i], 'bv')
 
 
+    def drawTrplScrnTrd(self, data, start_date="2018-03-01", end_date="2021-03-31", title='Triple Screen Trading System'):
+
+
+        # set fig
+        self.fig = plt.figure(figsize=(20, 25))
+        top_axes = plt.subplot2grid((7,7), (0,0), rowspan=3, colspan=7)
+        mid_axes = plt.subplot2grid((7,7), (3,0), rowspan=2, colspan=7, sharex=top_axes)
+        bottom_axes = plt.subplot2grid((7,7), (5,0), rowspan=2, colspan=7,sharex=top_axes)
+
+
+
+        df = analyzer.getMACD(data)
+        dt_range = pd.date_range(start=start_date, end=end_date)
+        df = df[df.index.isin(dt_range)]
+        index = df.index.astype('str') 
+
+
+        # top axis
+        top_axes.plot(index, df['ema130'], color='c', label='EMA130')
+        candlestick2_ohlc(top_axes, df['open'], df['high'], df['low'], df['close'], width=0.5, colorup='r', colordown='b')
+
+        top_axes.legend(loc='best',fontsize=15)
+        top_axes.set_title(title, fontsize=30)
+        top_axes.set_ylabel('Price', fontsize=15)
+        top_axes.legend(loc='best',fontsize=15)
+        top_axes.grid(True)
+
+        # mid axis
+        mid_axes.bar(index, df['macdhist'], color='m', label='MACD-hist')
+        mid_axes.plot(index, df['macd'], color='b', label='MACD')
+        mid_axes.plot(index, df['signal'], 'g--', label='MACD-signal')
+        mid_axes.grid(True)
+        mid_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        mid_axes.legend(loc='best',fontsize=15)
+
+        # # index = data.index.astype('str') # 캔들스틱 x축이 str로 들어감
+
+
 
     # ------------------------- Additional funct. ------------------------- #
 
@@ -331,6 +375,7 @@ class Visualizer:
         
         self.top_axes.plot(self.index, self.data['Reference'], label=name, linewidth=0.7)
         self.top_axes.legend()
+
 
     def clear(self):
         

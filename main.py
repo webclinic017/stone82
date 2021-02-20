@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # ------------------------  COMPLETE ------------------------- #    
     #company_list = ['하이록코리아', 'NAVER', 'LG화학', '메디톡스', '에프에스티'] # ['RCL' ,'NCLH']
-    company_list = ['NCLH'] #['NCLH', 'rcl', 'ccl', 'cuk']
+    company_list = ['AAPL', 'NCLH'] #['NCLH', 'rcl', 'ccl', 'cuk']
     data_dict = {}
 
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #     data_dict[company] = db.getDailyPrice(company, start_date='2020-01-01',end_date='2021-02-19')
     
     for company in company_list:
-        data = manager.getDataFromYahoo(company,'2020-04-01')
+        data = manager.getDataFromYahoo(company,'2017-04-01')
         data_dict[company] = data.rename(columns={'Date':'date','Close':'close',
             'Open':'open','High':'high','Low':'low','Volume':'volume'})
         
@@ -57,12 +57,10 @@ if __name__ == "__main__":
     # # candle stick plot
     # visualizer.drawCandleStick(
     #     data_dict[company_list[0]], 
-    #     start_date=None, 
-    #     end_date=None, 
     #     title=company_list[0]+ ' 양봉차트', 
     #     add_ma=True
     # )
-    # visualizer.save('./imgs/CANDLE1.png')
+    # visualizer.save('./imgs/candle.png')
     # visualizer.clear()
 
     # # scatter plot
@@ -73,32 +71,36 @@ if __name__ == "__main__":
     #     y_data_name=company_list[1],
     #     title='산점도'
     # )
-    # visualizer.save('./imgs/SCATTER1.png')
+    # visualizer.save('./imgs/scatter.png')
     # visualizer.clear()
 
     # # Daily percent changes
     # visualizer.drawDPC(data_dict, title=company_list[0] + ' 관련주식')
-    # visualizer.save('./imgs/DPC1.png')
+    # visualizer.save('./imgs/dpc.png')
     # visualizer.clear()
 
     # # Index plot
     # visualizer.drawIndex(data_dict, title=company_list[0] + ' 지수화')
-    # visualizer.save('./imgs/Index1.png')
+    # visualizer.save('./imgs/index.png')
     # visualizer.clear()
 
     # # Maximum Drawn Down
     # visualizer.drawMDD(data_dict[company_list[0]], title=company_list[0] + '최대 손실 낙폭')
-    # visualizer.save('./imgs/MDD1.png')
+    # visualizer.save('./imgs/mdd.png')
 
     # visualizer.drawEfficFrnt(data_dict)
-    # visualizer.save('./imgs/EF.png')
+    # visualizer.save('./imgs/ef.png')
     # visualizer.clear()
 
-    visualizer.drawTrndBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (추세추종)')
-    visualizer.save('./imgs/BB_trend.png')
-    visualizer.clear()
+    # visualizer.drawTrndBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (추세추종)')
+    # visualizer.save('./imgs/BB_trend.png')
+    # visualizer.clear()
 
 
-    visualizer.drawRvrsBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (반전매매)')
-    visualizer.save('./imgs/BB_reverse.png')
+    # visualizer.drawRvrsBolnBand(data_dict[company_list[0]], title=company_list[0] +' 볼린저 밴드 (반전매매)')
+    # visualizer.save('./imgs/BB_reverse.png')
+    # visualizer.clear()
+
+    visualizer.drawTrplScrnTrd(data_dict[company_list[0]], title=company_list[0] +' 삼중창 매매')
+    visualizer.save('./imgs/Triple.png')
     visualizer.clear()

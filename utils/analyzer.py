@@ -41,9 +41,10 @@ class Analyzer():
 
     def getMovingAvg(self, data, MA):
 
-        MA = int(MA)
+        moving_avg = 'MA-'+str(MA)
 
-        return data['close'].rolling(MA).mean()
+        data[moving_avg] = data['close'].rolling(int(MA)).mean()
+        return data
 
          
     def getLinearRegress(self, data_x, data_y):
@@ -140,9 +141,20 @@ class Analyzer():
         return data.dropna()
 
 
+    def getMACD(self, data):
 
+        ema60 = data['close'].ewm(span=60).mean()   
+        ema130 = data['close'].ewm(span=130).mean() 
+        macd = ema60 - ema130                 
+        signal = macd.ewm(span=45).mean()      
+        macdhist = macd - signal               
 
+        return data.assign(ema130=ema130, ema60=ema60, macd=macd, signal=signal,
+            macdhist=macdhist).dropna() 
+            
+        #data['number'] = data.index.map(mdates.date2num)  
 
+        
 
 
     # def getMFI(self, data, num_window=10):
