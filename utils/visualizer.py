@@ -117,8 +117,9 @@ class Visualizer:
     def drawIndex(self, data_dict, title='Index'):
         """ ploting index  """
 
-        assert (len(data_dict) <= len(self.COLORS))
-        color_list = copy.deepcopy(self.COLORS)
+        # assert (len(data_dict) <= len(self.COLORS))
+        #color_list = copy.deepcopy(self.COLORS)
+        color_list = ['r', 'b', 'g', 'c', 'k' , 'y']
 
         # set fig
         self.fig = plt.figure(figsize=(20, 10))
@@ -162,8 +163,6 @@ class Visualizer:
 
     def drawDPC(self, data_dict, title='Daily Percent Changes'):
         """ ploting daily percent changes """
-
-        assert (len(data_dict) <= len(self.COLORS))
 
 
         # set fig
@@ -316,12 +315,11 @@ class Visualizer:
 
         # set fig
         self.fig = plt.figure(figsize=(20, 25))
-        top_axes = plt.subplot2grid((7,7), (0,0), rowspan=3, colspan=7)
+        top_axes = plt.subplot2grid((8,8), (0,0), rowspan=3, colspan=8)
         top_axes.get_yaxis().get_major_formatter().set_scientific(False)
-        mid_axes = plt.subplot2grid((7,7), (3,0), rowspan=2, colspan=7, sharex=top_axes)
-        bottom_axes = plt.subplot2grid((7,7), (5,0), rowspan=2, colspan=7,sharex=top_axes)
-
-
+        mid_axes = plt.subplot2grid((8,8), (3,0), rowspan=2, colspan=8, sharex=top_axes)
+        bottom_axes = plt.subplot2grid((8,8), (5,0), rowspan=2, colspan=8,sharex=top_axes)
+        volume_axes = plt.subplot2grid((8,8), (7,0), rowspan=1, colspan=8,sharex=top_axes)
 
         df = analyzer.getMACD(data)
         index = df.index.astype('str') 
@@ -349,6 +347,15 @@ class Visualizer:
         bottom_axes.set_yticks([0,20,80,100])
         bottom_axes.grid(True)
         bottom_axes.legend(loc='best',fontsize=15)
+
+
+        # bottom axes
+        color_fuc = lambda x : 'r' if x >= 0 else 'b'
+        color_list = list(df['volume'].diff().fillna(0).apply(color_fuc))
+        volume_axes.xaxis.set_major_locator(ticker.MaxNLocator(10))
+        volume_axes.bar(index, df['volume'], width=0.5, align='center', color=color_list)
+        volume_axes.set_xlabel('Date', fontsize=15)
+
 
         # strategy of sell & buy 
         ref='slow_d'
