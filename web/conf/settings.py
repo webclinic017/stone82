@@ -25,7 +25,7 @@ SECRET_KEY = '_6tv3t4fh4%c%yk151k3vw^@6_qpwzs1kg(^*5(sc=^pm@v5=t'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['stone82.kro.kr']
+ALLOWED_HOSTS = ['stone82.kro.kr','1.234.185.93']
 
 
 # Application definition
