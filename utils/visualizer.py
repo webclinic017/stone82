@@ -7,7 +7,7 @@ import matplotlib.dates as mdates
 import matplotlib
 import matplotlib.ticker as ticker
 import pandas as pd
-from utils.analyzer import Analyzer
+from Analyzer.analyzer import Analyzer
 from datetime import datetime
 import copy
 import numpy as np

@@ -2,7 +2,7 @@ import pandas as pd
 import pymysql
 from datetime import datetime, timedelta
 import re
-from utils.korDB_manager import KoreaDB_manager
+from DB.korDB_manager import KoreaDB_manager
 
 PWD='ehfvkfdl123@'
 DB_NAME='KOR_DB'

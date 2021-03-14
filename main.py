@@ -1,9 +1,9 @@
 import argparse
 import os
-from utils.analyzer import Analyzer
-from utils.korDB_manager import KoreaDB_manager
+from Analyzer.analyzer import Analyzer
+from DB.korDB_manager import KoreaDB_manager
+from DB.database import DataBase
 from utils.visualizer import Visualizer
-from utils.database import DataBase
 from utils.section import *
 
 
