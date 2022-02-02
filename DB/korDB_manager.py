@@ -2,13 +2,9 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from pandas_datareader import data as pdr_data
 from datetime import datetime
-import urllib
-import pymysql
-import calendar
-import time
-import json
-import os
-import requests
+import urllib, pymysql, calendar, time, json
+import os, requests, sys
+
 import multiprocessing as mp
 
 

@@ -1,0 +1,16 @@
+version: '2.3'
+
+services:
+  stone82_db:
+    image: mariadb:10.5
+    ports:
+      - 3306:3306
+    
+    env_file: .env
+
+    environment:
+      TZ: Asia/Seoul
+
+    volumes:
+      - /mnt/d/data/stone82/mysql/:/var/lib/mysql/
+    
