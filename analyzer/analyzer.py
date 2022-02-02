@@ -7,37 +7,34 @@ import pandas as pd
 
 lock = threading.Lock()
 
+
 class Analyzer():
 
     def __init__(self, NUM_D_of_Y=224, vnet=False):
 
-        self.num_day_of_year= NUM_D_of_Y
-    
+        self.num_day_of_year = NUM_D_of_Y
 
     def getDailyPercChanges(self, data):
         """ return daily percent changes """
 
-        dpc = (data['close'] - data['close'].shift(1)) / data['close'].shift(1) * 100
+        dpc = (data['close'] - data['close'].shift(1)) / \
+            data['close'].shift(1) * 100
         dpc.iloc[0] = 0
 
         return dpc.cumsum()
-
 
     def getIndex(self, data):
         """ return daily percent changes """
 
         return (data['close'] / data['close'][0]) * 100
-       
-
 
     def getDrawDown(self, data, window=224):
         """ return maximum draw down """
-        peak = data['close'].rolling(window, min_periods=1 ).max()
+        peak = data['close'].rolling(window, min_periods=1).max()
         drawdown = data['close']/peak - 1.0
         max_drawdown = drawdown.rolling(window, min_periods=1).min()
 
         return drawdown, max_drawdown
-
 
     def getMovingAvg(self, data, MA):
 
@@ -46,7 +43,6 @@ class Analyzer():
         data[moving_avg] = data['close'].rolling(int(MA)).mean()
         return data
 
-         
     def getLinearRegress(self, data_x, data_y):
 
         return stats.linregress(data_x, data_y)
@@ -54,47 +50,45 @@ class Analyzer():
         # with lock:
         #     self.fig.savefig(path)
 
-
     def getEfficFront(self, data_dict, no_risk=0):
 
         df = pd.DataFrame()
         for name, data in data_dict.items():
             df[name] = data['close']
-        
+
         daily_ret = df.pct_change()
         annual_ret = daily_ret.mean() * self.num_day_of_year
         daily_cov = daily_ret.cov()
         annual_cov = daily_cov * self.num_day_of_year
 
-        port_ret = [] 
-        port_risk = [] 
-        port_weights = [] 
+        port_ret = []
+        port_risk = []
+        port_weights = []
         sharpe_ratio = []
 
-        for _ in range(20000): 
-            weights = np.random.random(len(data_dict)) 
-            weights /= np.sum(weights) 
+        for _ in range(20000):
+            weights = np.random.random(len(data_dict))
+            weights /= np.sum(weights)
 
-            returns = np.dot(weights, annual_ret) 
-            risk = np.sqrt(np.dot(weights.T, np.dot(annual_cov, weights))) 
+            returns = np.dot(weights, annual_ret)
+            risk = np.sqrt(np.dot(weights.T, np.dot(annual_cov, weights)))
 
-            port_ret.append(returns) 
-            port_risk.append(risk) 
-            port_weights.append(weights) 
+            port_ret.append(returns)
+            port_risk.append(risk)
+            port_weights.append(weights)
             sharpe_ratio.append((returns-no_risk)/risk)
 
-        portfolio = {'returns': port_ret, 'risk': port_risk, 'sharpe': sharpe_ratio} 
+        portfolio = {'returns': port_ret,
+                     'risk': port_risk, 'sharpe': sharpe_ratio}
 
-        for idx, company  in enumerate(data_dict.keys()):
-            portfolio[company] = [weight[idx] for weight in port_weights] 
+        for idx, company in enumerate(data_dict.keys()):
+            portfolio[company] = [weight[idx] for weight in port_weights]
 
-
-        return pd.DataFrame(portfolio) 
-        # df2 = df2[['returns', 'risk'] + [company for company in data_dict.keys()]] 
-
+        return pd.DataFrame(portfolio)
+        # df2 = df2[['returns', 'risk'] + [company for company in data_dict.keys()]]
 
     def getTrndBolnBand(self, data, MA_num=20, MFI_num=10):
-        
+
         moving_avg = 'MA-' + str(MA_num)
         MFI = 'MFI-' + str(MFI_num)
 
@@ -102,7 +96,8 @@ class Analyzer():
         data['stddev'] = data['close'].rolling(window=MA_num).std()
         data['upper'] = data[moving_avg] + (data['stddev'] * 2)
         data['lower'] = data[moving_avg] - (data['stddev'] * 2)
-        data['PB'] = (data['close'] - data['lower']) / (data['upper'] - data['lower'])
+        data['PB'] = (data['close'] - data['lower']) / \
+            (data['upper'] - data['lower'])
         data['BW'] = (data['upper'] - data['lower']) / (data[moving_avg]) * 100
         data['TP'] = (data['high'] + data['low'] + data['close']) / 3
         data['PMF'] = 0
@@ -110,22 +105,21 @@ class Analyzer():
 
         for i in range(len(data.close)-1):
             if data.TP.values[i] < data.TP.values[i+1]:
-                data.PMF.values[i+1] = data.TP.values[i+1] * data.volume.values[i+1]
+                data.PMF.values[i+1] = data.TP.values[i+1] * \
+                    data.volume.values[i+1]
                 data.NMF.values[i+1] = 0
             else:
-                data.NMF.values[i+1] = data.TP.values[i+1] * data.volume.values[i+1]
+                data.NMF.values[i+1] = data.TP.values[i+1] * \
+                    data.volume.values[i+1]
                 data.PMF.values[i+1] = 0
-        data['MFR'] = (data.PMF.rolling(window=MFI_num).sum() / 
-            data.NMF.rolling(window=MFI_num).sum())
+        data['MFR'] = (data.PMF.rolling(window=MFI_num).sum() /
+                       data.NMF.rolling(window=MFI_num).sum())
         data[MFI] = 100 - 100 / (1 + data['MFR'])
-
 
         return data[MA_num-1:]
 
-
-
     def getRvrsdBolnBand(self, data, MA_num=20, IIP_num=21):
-        
+
         moving_avg = 'MA-' + str(MA_num)
         IIP = 'IIP-' + str(IIP_num)
 
@@ -133,37 +127,35 @@ class Analyzer():
         data['stddev'] = data['close'].rolling(window=MA_num).std()
         data['upper'] = data[moving_avg] + (data['stddev'] * 2)
         data['lower'] = data[moving_avg] - (data['stddev'] * 2)
-        data['PB'] = (data['close'] - data['lower']) / (data['upper'] - data['lower'])
+        data['PB'] = (data['close'] - data['lower']) / \
+            (data['upper'] - data['lower'])
 
-        data['II'] = (2*data['close']-data['high']-data['low']) / (data['high']-data['low'])*data['volume']  
-        data[IIP] = data['II'].rolling(window=IIP_num).sum() /data['volume'].rolling(window=IIP_num).sum()*100  
-        
+        data['II'] = (2*data['close']-data['high']-data['low']) / \
+            (data['high']-data['low'])*data['volume']
+        data[IIP] = data['II'].rolling(window=IIP_num).sum(
+        ) / data['volume'].rolling(window=IIP_num).sum()*100
+
         return data.dropna()
-
 
     def getMACD(self, data):
 
-        ema60 = data['close'].ewm(span=60).mean()   
-        ema130 = data['close'].ewm(span=130).mean() 
-        macd = ema60 - ema130                 
-        signal = macd.ewm(span=45).mean()      
-        macdhist = macd - signal               
+        ema60 = data['close'].ewm(span=60).mean()
+        ema130 = data['close'].ewm(span=130).mean()
+        macd = ema60 - ema130
+        signal = macd.ewm(span=45).mean()
+        macdhist = macd - signal
         data = data.assign(ema130=ema130, ema60=ema60, macd=macd, signal=signal,
-            macdhist=macdhist).dropna() 
+                           macdhist=macdhist).dropna()
 
-        ndays_high = data['high'].rolling(window=14, min_periods=1).max()     
-        ndays_low = data['low'].rolling(window=14, min_periods=1).min()       
-        fast_k = (data['close'] - ndays_low) / (ndays_high - ndays_low) * 100  
-        slow_d= fast_k.rolling(window=3).mean()                           
-        return  data.assign(fast_k=fast_k, slow_d=slow_d).dropna()             
+        ndays_high = data['high'].rolling(window=14, min_periods=1).max()
+        ndays_low = data['low'].rolling(window=14, min_periods=1).min()
+        fast_k = (data['close'] - ndays_low) / (ndays_high - ndays_low) * 100
+        slow_d = fast_k.rolling(window=3).mean()
+        return data.assign(fast_k=fast_k, slow_d=slow_d).dropna()
 
-        #data['number'] = data.index.map(mdates.date2num)  
-
-        
-
+        #data['number'] = data.index.map(mdates.date2num)
 
     # def getMFI(self, data, num_window=10):
-
 
     #     return data
     # def prepare(self, chart_data, title):
@@ -194,10 +186,10 @@ class Analyzer():
     #         ax = self.axes[0].twinx()
     #         volume = np.array(chart_data)[:, -1].tolist()
     #         ax.bar(x, volume, color='b', alpha=0.3)
-            
+
     # def plot(self, epoch_str=None, num_epoches=None, epsilon=None,
     #         action_list=None, actions=None, num_stocks=None,
-    #         outvals_value=[], outvals_policy=[], exps=None, 
+    #         outvals_value=[], outvals_policy=[], exps=None,
     #         learning_idxes=None, initial_balance=None, pvs=None):
 
     #     with lock:
@@ -224,12 +216,12 @@ class Analyzer():
     #                 # 배경 그리기
     #                 for idx in x:
     #                     if max_actions[idx] == action:
-    #                         self.axes[2].axvline(idx, 
+    #                         self.axes[2].axvline(idx,
     #                             color=color, alpha=0.1)
     #                 # 가치 신경망 출력의 tanh 그리기
-    #                 self.axes[2].plot(x, outvals_value[:, action], 
+    #                 self.axes[2].plot(x, outvals_value[:, action],
     #                     color=color, linestyle='-')
-            
+
     #         # 차트 4. 정책 신경망
     #         # 탐험을 노란색 배경으로 그리기
     #         for exp_idx in exps:
@@ -247,7 +239,7 @@ class Analyzer():
     #         if len(outvals_policy) > 0:
     #             for action, color in zip(action_list, self.COLORS):
     #                 self.axes[3].plot(
-    #                     x, outvals_policy[:, action], 
+    #                     x, outvals_policy[:, action],
     #                     color=color, linestyle='-')
 
     #         # 차트 5. 포트폴리오 가치
