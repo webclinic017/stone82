@@ -26,8 +26,18 @@ logger = logging.getLogger(__name__)
 
 # extra modules
 visualizer = Visualizer()
-manager = KoreaDB_manager()
-db = DataBase()
+manager = KoreaDB_manager(
+    host=os.environ.get('MYSQL_HOST'),
+    db_name='KOR_DB',
+    pwd=os.environ.get('MYSQL_ROOT_PASSWORD'),
+    user=os.environ.get('MYSQL_USER'),
+)
+db = DataBase(
+    host=os.environ.get('MYSQL_HOST'),
+    db_name='KOR_DB',
+    pwd=os.environ.get('MYSQL_ROOT_PASSWORD'),
+    user=os.environ.get('MYSQL_USER'),
+)
 
 
 # global variables

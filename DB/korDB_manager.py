@@ -1,15 +1,30 @@
+from threading import Thread
 import pandas as pd
 from bs4 import BeautifulSoup
 from pandas_datareader import data as pdr_data
 from datetime import datetime
-import urllib, pymysql, calendar, time, json
-import os, requests, sys
-
+import urllib
+import pymysql
+import calendar
+import time
+import json
+import os
+import requests
+import sys
+import dart_fss as dart
+from datetime import datetime
 import multiprocessing as mp
+from multiprocessing.pool import ThreadPool
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
+from tqdm import tqdm
+import time
+import asyncio
+import zipfile
+import xml.etree.ElementTree as ET
+import numpy as np
 
 
-PWD = 'ehfvkfdl123@'
-DB_NAME = 'KOR_DB'
 KRX_URL = 'http://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13'
 NAVER_URL_BASE = 'https://finance.naver.com/item/sise_day.nhn?code'  # 068270&page=1'
 USER_AGENT = 'Mozilla/5.0'
@@ -17,11 +32,23 @@ USER_AGENT = 'Mozilla/5.0'
 
 class KoreaDB_manager():
 
-    def __init__(self, vnet=False):
+    def __init__(
+        self, host, db_name, pwd,
+        user='root',
+        port=3306,
+        autocommit=True,
+        vnet=False
+    ):
         """ constructor: MariaDB connection & code dictionary generation  """
 
-        self.connection = pymysql.connect(host='localhost', port=3306, db=DB_NAME,
-                                          user='root', passwd=PWD, autocommit=True)
+        self.connection = pymysql.connect(
+            host=host,
+            port=port,
+            db=db_name,
+            user=user,
+            passwd=pwd,
+            autocommit=autocommit
+        )
 
         with self.connection.cursor() as cursor:
             sql = """
@@ -48,6 +75,8 @@ class KoreaDB_manager():
 
         self.connection.commit()
         self.code_dict = dict()
+        self.corp_df = self.getCorpCodes(self.dart_key)
+        self.updateCompanyInfo()
 
     def __del__(self):
         """ destructor: MariaDB disconnection   """
@@ -90,19 +119,54 @@ class KoreaDB_manager():
                 self.connection.commit()
                 print('')
 
-    # --------------------------- Data Crawling --------------------------- #
+    def getCodes(self):
+        return self.code_dict
 
-    def getDataFromYahoo(self, code, start, end=None):
+    # -------------------------------------------------
+    # Data crawling modules
+    # ------------------------------------------------
+    # def getDataFromDARTtoCSV(self, code, fsdata_dir='fsdata', bgn_de=20000101):
+    def getDataFromDARTtoCSV(self, code):
+        fsdata_dir = 'fsdata'
+        bgn_de = 20000101
+        os.makedirs(fsdata_dir, exist_ok=True)
+
+        dart.set_api_key(api_key="8ba06a012b644df0819f3035d024f905c71e0165")
+        corp_list = dart.get_corp_list()
+        data = corp_list.find_by_stock_code(code)
+
+        print(f"[D] code: {code}")
+        print(f"[D] type(data): {type(data)}")
+
+        tp_list = ['bs', 'is', 'cis', 'cf']
+        try:
+            fs = data.extract_fs(
+                bgn_de=20000101, report_tp='quarter')
+        except:
+            pass
+
+        for tp in tp_list:
+            filepath = os.path.join(
+                fsdata_dir, f"{code}_{tp}.csv")
+            df = fs[tp]
+            if df is not None:
+                df.to_csv(filepath, encoding="euc-kr")
+                print(f"[D] save file : {filepath}")
+            else:
+                print(f"[E] skip file: {filepath}")
+
+    def crawlDataFromYahoo(self, code, start, end=None):
 
         return pdr_data.get_data_yahoo(code, start, end)
 
-    def getDataFromNaver(self, code=None, name=None, pages_to_fetch=9999):
+    def crawlDataFromNaver(self, code=None, name=None, pages_to_fetch=9999):
         """ crawling data from Naver - update: 2021-01-31 """
 
-        if name == None:
-            name = self.getName(code)
-        elif code == None:
-            code = self.getCode(name)
+        # if name == None:
+        #     name = self.getName(code)
+
+        # if code == None:
+        #     code = self.getCode(name)
 
         try:
             url = f'{NAVER_URL_BASE}={code}'
@@ -121,18 +185,28 @@ class KoreaDB_manager():
             for page in range(1, pages + 1)[:]:
                 pg_url = '{}&page={}'.format(url, page)
 
-                df = df.append(pd.read_html(requests.get(pg_url,
-                                                         headers={'User-agent': USER_AGENT}).text)[0])
+                df = df.append(
+                    pd.read_html(
+                        requests.get(pg_url, headers={'User-agent': USER_AGENT}).text)[0]
+                )
                 tmnow = datetime.now().strftime('%Y-%m-%d %H:%M')
                 print('[{}] {} ({}) : {:04d}/{:04d} pages are downloading...'.
                       format(tmnow, name, code, page, pages), end="\r")
 
-            df = df.rename(columns={'날짜': 'date', '종가': 'close', '전일비': 'diff',
-                           '시가': 'open', '고가': 'high', '저가': 'low', '거래량': 'volume'})
+            df = df.rename(
+                columns={
+                    '날짜': 'date',
+                    '종가': 'close',
+                    '전일비': 'diff',
+                    '시가': 'open',
+                    '고가': 'high',
+                    '저가': 'low',
+                    '거래량': 'volume'})
             df['date'] = df['date'].str.replace('.', '-')
             df = df.dropna()
-            df[['close', 'diff', 'open', 'high', 'low', 'volume']] = df[['close',
-                                                                         'diff', 'open', 'high', 'low', 'volume']].astype(int)
+            df[['close', 'diff', 'open', 'high', 'low', 'volume']] = df[[
+                'close', 'diff', 'open', 'high', 'low', 'volume']].astype(int)
+
             df = df[['date', 'open', 'high', 'low', 'close', 'diff', 'volume']]
 
             return df
@@ -162,9 +236,9 @@ class KoreaDB_manager():
                     f"{r.diff}, {r.volume})"
                 curs.execute(sql)
             self.connection.commit()
-            print('[{}] #{:04d} {} ({}) : {} rows > REPLACE INTO daily_'
-                  'price [OK]'.format(datetime.now().strftime('%Y-%m-%d'
-                                                              ' %H:%M'), num+1, company, code, len(df)))
+            date = datetime.now().strftime('%Y-%m-%d %H:%M')
+            print(
+                f'[{date}] #{num+1:04d} {company} ({code}) : {len(df)} rows > REPLACE INTO daily_price [OK]')
 
     def call_back(self, x):
         if x is not None:
@@ -181,7 +255,7 @@ class KoreaDB_manager():
 
         t_stamp01 = time.time()
         for idx, code in enumerate(self.code_dict):
-            df = self.getDataFromNaver(
+            df = self.crawlDataFromNaver(
                 code, self.code_dict[code], pages_to_fetch)
             if df is None:
                 continue
@@ -223,49 +297,3 @@ class KoreaDB_manager():
         print("Waiting for next update ({}) ... ".format(tmnext.strftime
                                                          ('%Y-%m-%d %H:%M')))
         t.start()
-
-
-if __name__ == '__main__':
-
-    data_loader = KoreaDB_manager()
-    data_loader.updateCompanyInfo()
-    data_loader.updateDailyPrice(9999)
-    # data_loader.executeDaily('config/kor_DB.config')
-
-    # --------------------------- TRASH CAN --------------------------- #
-
-    # def addCodeList(self, code_path):
-    #     """ data url: https://dev-kind.krx.co.kr/main.do?method=loadInitPage&scrnmode=1 """
-
-    #     path = code_path
-    #     if not os.path.exists(path):
-    #         path = KOREA_CODE_URL
-    #     try:
-    #         df = pd.read_html(path)[0]
-    #         df = df.rename(columns={'회사명': 'name', '종목코드': 'code'})
-    #         df.code = df.code.map('{:06d}'.format)
-    #         self.code_df = df.sort_values(by='name',ignore_index=True)
-
-    #     except Exception as e:
-    #         print('=================================================')
-    #         print(f'[ERROR] {__name__} : {e}')
-    #         print(f'Cannot fetch to code data. Please check code path or url\npath:{code_path}\nurl:{KOREA_CODE_URL}')
-    #         print('=================================================')
-
-    # def addCodeList(self, code_path):
-    #     """ data url: https://dev-kind.krx.co.kr/main.do?method=loadInitPage&scrnmode=1 """
-
-    #     path = code_path
-    #     if not os.path.exists(path):
-    #         path = KOREA_CODE_URL
-    #     try:
-    #         df = pd.read_html(path)[0]
-    #         df = df.rename(columns={'회사명': 'name', '종목코드': 'code'})
-    #         df.code = df.code.map('{:06d}'.format)
-    #         self.code_df = df.sort_values(by='name',ignore_index=True)
-
-    #     except Exception as e:
-    #         print('=================================================')
-    #         print(f'[ERROR] {__name__} : {e}')
-    #         print(f'Cannot fetch to code data. Please check code path or url\npath:{code_path}\nurl:{KOREA_CODE_URL}')
-    #         print('=================================================')

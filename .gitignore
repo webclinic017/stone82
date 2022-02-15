@@ -1,1 +1,16 @@
-__pycache__
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# asset dirs
+imgs/*
+logs/*
+fsdata
+
+# sep files
+*.xml
+*.zip
+*.pkl
+.env
+*.png
+*.log
