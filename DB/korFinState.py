@@ -163,11 +163,13 @@ class KorFinStateModel():
 
     # Function list
     def stockCode2corpCode(self, stock_code):
+        """ 주식 종목 코드 --> 재무제표 기업코드 변환 """
         result = self.corp_df[self.corp_df['stock_code']
                               == stock_code]['corp_code'].to_numpy()
         return result[0] if len(result) == 1 else None
 
     def getTotalStock(self, corp_code, bsns_year, report_code):
+        """ 전체 주식수 반환 함수 """
         URL = "https://opendart.fss.or.kr/api/stockTotqySttus.json"
         params = {
             'crtfc_key': self.dart_key,
@@ -183,6 +185,7 @@ class KorFinStateModel():
         return pd.DataFrame(res['list'])
 
     def getCorpCodes(self, api_key, xml_path='CORPCODE.xml'):
+        """ 기업 고유 코드 불러오는 함수 """
 
         if not os.path.isfile(xml_path):
 
@@ -220,6 +223,7 @@ class KorFinStateModel():
         return df
 
     def getFinState(self, corp_code, bsns_year, report_code='11011'):
+        """ DART API로 부터 재무제표 불러오는 함수 """
         URL = 'https://opendart.fss.or.kr/api/'
         URL += 'fnlttMultiAcnt.json' if ',' in corp_code else 'fnlttSinglAcnt.json'
 
@@ -237,6 +241,8 @@ class KorFinStateModel():
         return pd.DataFrame(res['list'])
 
     def getFinStateAll(self, corp_code, bsns_year, report_code='11011', fs_div='CFS'):
+        """ DART API로 부터 전체 재무제표 불러오는 함수 """
+
         URL = 'https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json'
         """
         report_code:
@@ -277,6 +283,7 @@ class KorFinStateModel():
         return True if len(df) == 1 else False
 
     def rmDupl(self, data: list) -> list:
+        """ 중복인자 제거 """
         return list(set(data))
 
     def doCheck(self, data, name="data"):
@@ -299,6 +306,7 @@ class KorFinStateModel():
         return data
 
     def getStockNum(self, df):
+        """ 주식수 반환 함수 """
 
         total_stocks = df.loc[
             df['se'].isin(['합계'])
@@ -337,6 +345,7 @@ class KorFinStateModel():
         return total_stocks, normal_stocks, prior_stocks
 
     def getEquity(self, df):
+        """ 자본 총계 반환 함수 """
         data = df.loc[
             df['sj_div'].isin(['BS']) &
             (df['account_id'].isin(['ifrs-full_Equity']) |
@@ -372,6 +381,8 @@ class KorFinStateModel():
         return self.doCheck(data, '자본')
 
     def getLiability(self, df):
+        """ 부체총계 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_Liabilities']) |
             df['account_id'].isin(['ifrs_Liabilities']),
@@ -394,6 +405,7 @@ class KorFinStateModel():
         return self.doCheck(data, '부채')
 
     def getProfit(self, df):
+        """ 당기순이익 반환 함수 """
 
         data = df.loc[
             df['account_id'].isin(['ifrs-full_ProfitLossAttributableToOwnersOfParent']) |
@@ -479,6 +491,8 @@ class KorFinStateModel():
         return self.doCheck(data, '당기순이익')
 
     def getRevenue(self, df):
+        """ 매출액 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_Revenue']) |
             df['account_id'].isin(['ifrs_Revenue']),
@@ -508,6 +522,8 @@ class KorFinStateModel():
         return self.doCheck(data, '매출액')
 
     def getGP(self, df):
+        """ 매출총이익 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_GrossProfit']) |
             df['account_id'].isin(['ifrs_GrossProfit']),
@@ -517,6 +533,8 @@ class KorFinStateModel():
         return self.doCheck(data, '매출총이익')
 
     def getOpIncome(self, df):
+        """ 영업이익 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['dart_OperatingIncomeLoss']),
             'thstrm_amount'
@@ -535,6 +553,8 @@ class KorFinStateModel():
         return self.doCheck(data, '영업이익')
 
     def getCurrAssets(self, df):
+        """ 유동자산 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CurrentAssets']) |
             df['account_id'].isin(['ifrs_CurrentAssets']),
@@ -544,6 +564,8 @@ class KorFinStateModel():
         return self.doCheck(data, "유동자산")
 
     def getNonCurrAssets(self, df):
+        """ 비유동자산 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_NoncurrentAssets']) |
             df['account_id'].isin(['ifrs_NoncurrentAssets']),
@@ -553,6 +575,8 @@ class KorFinStateModel():
         return self.doCheck(data, "비유동부채")
 
     def getCurrLiability(self, df):
+        """ 유동부채 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CurrentLiabilities']) |
             df['account_id'].isin(['ifrs_CurrentLiabilities']),
@@ -562,6 +586,8 @@ class KorFinStateModel():
         return self.doCheck(data, "유동부채")
 
     def getCashAssets(self, df):
+        """ 현금성 자산 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CashAndCashEquivalents']) |
             df['account_id'].isin(['ifrs_CashAndCashEquivalents']),
@@ -571,6 +597,8 @@ class KorFinStateModel():
         return self.doCheck(data, "현금및현금성자산")
 
     def getTaxCost(self, df):
+        """ 법인세비용차감전순이익 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_ProfitLossBeforeTax']) |
             df['account_id'].isin(['ifrs_ProfitLossBeforeTax']),
@@ -591,6 +619,8 @@ class KorFinStateModel():
         return self.doCheck(data, '법인세비용차감전순이익')
 
     def getFinIncome(self, df):
+        """ 금융수익 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_FinanceIncome']) |
             df['account_id'].isin(['ifrs_FinanceIncome']),
@@ -611,6 +641,8 @@ class KorFinStateModel():
         return self.doCheck(data, '금융수익')
 
     def getFinCost(self, df):
+        """ 금융비용 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_FinanceCosts']) |
             df['account_id'].isin(['ifrs_FinanceCosts']),
@@ -631,6 +663,8 @@ class KorFinStateModel():
         return self.doCheck(data, '금융비용')
 
     def getCap(self, df):
+        """ 자본금 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_IssuedCapital']) |
             df['account_id'].isin(['ifrs_IssuedCapital']),
@@ -652,6 +686,8 @@ class KorFinStateModel():
         return self.doCheck(data, '자본금')
 
     def getOpCashFlow(self, df):
+        """ 영업현금흐름 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CashFlowsFromUsedInOperatingActivities']) |
             df['account_id'].isin(
@@ -674,6 +710,8 @@ class KorFinStateModel():
         return self.doCheck(data, '영업활동현금흐름')
 
     def getInvestCashFlow(self, df):
+        """ 투자활동 현금흐름 반환 함수 """
+
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CashFlowsFromUsedInInvestingActivities']) |
             df['account_id'].isin(
@@ -696,6 +734,7 @@ class KorFinStateModel():
         return self.doCheck(data, '투자활동현금흐름')
 
     def getFinCashFlow(self, df):
+        """ 재무활동 현금흐름 반환 함수 """
 
         data = df.loc[
             df['account_id'].isin(['ifrs-full_CashFlowsFromUsedInFinancingActivities']) |
@@ -719,6 +758,7 @@ class KorFinStateModel():
         return self.doCheck(data, '재무활동현금흐름')
 
     def getCAPEX(self, df):
+        """ 유형자산의 취득 반환 함수 """
 
         data = df.loc[
             df['account_id'].isin(
@@ -741,6 +781,8 @@ class KorFinStateModel():
         return self.doCheck(data, '유형자산의취득')
 
     def getFCF(self, df):
+        """ FCF 반환 함수 """
+
         data = df.loc[
             df['sj_div'].isin(['CF']) &
             df['account_id'].isin(
@@ -751,6 +793,7 @@ class KorFinStateModel():
         return self.doCheck(data, 'FCF')
 
     def getCapSurpl(self, df):
+        """ 자본잉여금 함수 """
 
         data = df.loc[
             df['account_id'].isin(['dart_CapitalSurplus']),
@@ -771,6 +814,7 @@ class KorFinStateModel():
         return self.doCheck(data, '자본잉여금')
 
     def getIncomeSurpl(self, df):
+        """ 이익잉여금 함수 """
 
         data = df.loc[
             df['account_id'].isin(['ifrs-full_RetainedEarnings']) |
@@ -792,7 +836,7 @@ class KorFinStateModel():
         return self.doCheck(data, '이익잉여금')
 
     def prepFinState(self, stock_code, year, report_code, fsdatadir="fsdata"):
-
+        """  DART 홈페이지에서 재무재표를 받아와서 DB에 저장할 수 있는 포맷으로 만들어줌  """
         result = {}
         base_dir = os.path.join(fsdatadir, year)
         os.makedirs(f"{base_dir}", exist_ok=True)
@@ -920,7 +964,7 @@ class KorFinStateModel():
                 print(f"total_stocks: {self.checkIsNum(total_num)}")
                 PSR = None
 
-        # ROC
+            # ROC
             if self.checkIsNum(op_income) & self.checkIsNum(assets) & self.checkIsNum(curr_liability):
                 ROC = op_income / (assets-curr_liability) * 100
             else:
@@ -930,7 +974,7 @@ class KorFinStateModel():
                 print(f"curr_liability: {self.checkIsNum(curr_liability)}")
                 ROC = None
 
-        # FCF
+            # FCF
             if self.checkIsNum(op_cashflow) & self.checkIsNum(capex):
                 FCF = op_cashflow - capex
             else:
@@ -1003,13 +1047,13 @@ class KorFinStateModel():
                 total_income_ratio = None
 
             if report_code == "11013":
-                quarter = "Q1"
+                quarter = "Q1"  # 1분기 보고서
             elif report_code == "11012":
-                quarter = "Q2"
+                quarter = "Q2"  # 반기 보고서
             elif report_code == "11014":
-                quarter = "Q3"
+                quarter = "Q3"  # 3분기 보고서
             elif report_code == "11011":
-                quarter = "annual"
+                quarter = "annual"  # 사업보고서 (1년 단위)
 
             result['year'] = year
             result['stock_code'] = stock_code
@@ -1058,6 +1102,7 @@ class KorFinStateModel():
             return None
 
     def replaceIntoDB(self, data):
+        """ 데이터를 DB에 저장하는 함수  """
         with self.connection.cursor() as curs:
             sql = f"""
                 REPLACE INTO finance_state (
@@ -1150,7 +1195,7 @@ class KorFinStateModel():
                 f"[I] [code: {data['stock_code']} | year:{data['year']} | report_code: {data['report_code']}] -> success to push data into DB")
 
     def getFinStateFromDB(self, stock_code, year, report_code):
-
+        """ DB로 부터 재무제표 불러오는 함수 """
         if stock_code not in self.code_dict:
             print(f"[E] Invalid code: {stock_code}")
             return None
@@ -1162,7 +1207,23 @@ class KorFinStateModel():
             df = pd.read_sql(sql, self.connection)
             return df
 
+    def getFinStateFromDB_all(self, year, report_code):
+        """ DB로 부터 연도 및 보고서 코드를 기준으로 재무제표 불러오는 함수 """
+
+        sql = f"""
+            SELECT * FROM finance_state WHERE year = '{year}' and report_code = '{report_code}'
+        """
+        df = pd.read_sql(sql, self.connection)
+        return df
+
     def updateFinStateToDB(self, year, report_code):
+        """ DART --> DB에 저장하는 코드
+            * 1분당 maximum request 60으로 제한 
+            * 어길 시 24시간동안 해당 IP차단
+            TODO:
+            - DART -> CSV -> DB 순서로 저장해서 최대한 API에 의존성 없애기
+        """
+
         code_list = list(self.code_dict.keys())
         for i, code in enumerate(code_list):
             result = self.prepFinState(code, year, report_code)
@@ -1196,9 +1257,13 @@ if __name__ == '__main__':
         pwd=pwd,
         dart_key=dart_key
     )
-    kor_model.updateFinStateToDB("2019", "11011")
-    # result = kor_model.prepFinState("005380", "2019", "11011")
-    # kor_model.replaceIntoDB(result)
+    # test = kor_model.getFinStateFromDB_all("2019", "11011")
+    # test.to_csv("2019_11011_all.csv", encoding="euc-kr")
+    # print(test)
+    # kor_model.updateFinStateToDB("2019", "11011")
+    result = kor_model.prepFinState("005380", "2019", "11011")
+    print(result)
+    kor_model.replaceIntoDB(result)
     # test = kor_model.getFinStateFromDB("005380", "2019", "11011")
     # print(test)
     # test = os.environ.get('MYSQL_ROOT_PASSWORD')

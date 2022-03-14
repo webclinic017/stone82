@@ -2,8 +2,8 @@ version: '2.3'
 
 services:
   
-  master:
-    container_name: cools-master
+  cools-master:
+    container_name: master
     image: stone82_master:0.0.1
     network_mode: host
     tty: true
@@ -20,6 +20,7 @@ services:
       - ./dev_env/.bashrc:/root/.bashrc
       - /mnt:/mnt
       - /home/coolseaweed/.ssh:/root/.ssh
+      - /home/coolseaweed/.vscode-server/:/root/.vscode-server/
     working_dir: /opt/workspace
     command: /bin/bash
 

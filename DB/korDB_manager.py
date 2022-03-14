@@ -75,7 +75,6 @@ class KoreaDB_manager():
 
         self.connection.commit()
         self.code_dict = dict()
-        self.corp_df = self.getCorpCodes(self.dart_key)
         self.updateCompanyInfo()
 
     def __del__(self):
@@ -90,6 +89,48 @@ class KoreaDB_manager():
         krx = krx.rename(columns={'종목코드': 'code', '회사명': 'company'})
         krx.code = krx.code.map('{:06d}'.format)
         return krx
+
+    def getCorpCodes(self, api_key, xml_path='CORPCODE.xml'):
+
+        if not os.path.isfile(xml_path):
+
+            URL_BASE = "https://opendart.fss.or.kr/api/corpCode.xml"
+
+            params = {
+                'crtfc_key': api_key
+            }
+
+            res = requests.get(URL_BASE, params=params)
+
+            pwd = os.getcwd()
+
+            corp_zip_file = os.path.join(pwd, 'corp_code.zip')
+            with open(corp_zip_file, 'wb') as fp:
+                fp.write(res.content)
+            zf = zipfile.ZipFile(corp_zip_file, 'r')
+            zf.extractall()
+
+        xml_path = os.path.abspath('./CORPCODE.xml')
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        tags_list = root.findall('list')
+
+        def convert(tag: ET.Element) -> dict:
+            conv = {}
+            for child in list(tag):
+                conv[child.tag] = child.text
+
+            return conv
+
+        tags_list_dict = [convert(x) for x in tags_list]
+        df = pd.DataFrame(tags_list_dict)
+
+        return df
+
+    def stockCode2corpCode(self, stock_code):
+        result = self.corp_df[self.corp_df['stock_code']
+                              == stock_code]['corp_code'].to_numpy()
+        return result[0] if len(result) == 1 else None
 
     def updateCompanyInfo(self):
         """ 종목코드를 company_info 테이블에 업데이트 한 후 딕셔너리에 저장 """

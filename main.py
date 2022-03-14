@@ -23,8 +23,18 @@ if __name__ == "__main__":
 
     FLAGS = getArgs()
     visualizer = Visualizer()
-    manager = KoreaDB_manager()
-    db = DataBase()
+    manager = KoreaDB_manager(
+        host=os.environ.get('MYSQL_HOST'),
+        db_name='KOR_DB',
+        pwd=os.environ.get('MYSQL_ROOT_PASSWORD'),
+        user=os.environ.get('MYSQL_USER'),
+    )
+    db = DataBase(
+        host=os.environ.get('MYSQL_HOST'),
+        db_name='KOR_DB',
+        pwd=os.environ.get('MYSQL_ROOT_PASSWORD'),
+        user=os.environ.get('MYSQL_USER'),
+    )
 
     # ------------------------  COMPLETE ------------------------- #
     START = '2021-01-13'
@@ -35,7 +45,7 @@ if __name__ == "__main__":
 
     for company in company_list:
 
-        dir_path = os.path.join(FLAGS.img_path, company)
+        dir_path = os.path.join(FLAGS.img_dir, "test")
         print(dir_path)
         os.makedirs(dir_path, exist_ok=True)
         data_dict[company] = db.getDailyPrice(
@@ -45,7 +55,6 @@ if __name__ == "__main__":
         visualizer.drawCandleStick(
             data_dict[company_list[0]],
             title=company_list[0] + ' 양봉차트',
-            add_ma=True
         )
         visualizer.save(dir_path+'/candle.png')
         visualizer.clear()
