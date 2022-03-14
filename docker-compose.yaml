@@ -18,6 +18,7 @@ services:
       - ./dev_env/.vim:/root/.vim
       - ./dev_env/.vimrc:/root/.vimrc
       - ./dev_env/.bashrc:/root/.bashrc
+      - .git:/opt/workspace/.git
       - /mnt:/mnt
       - /home/coolseaweed/.ssh:/root/.ssh
       - /home/coolseaweed/.vscode-server/:/root/.vscode-server/
