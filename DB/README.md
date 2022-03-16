@@ -10,7 +10,7 @@
 |DROP DATABASE [DB name];|[!] 데이터 베이스 삭제|
 |SHOW TABLES;|데이터 베이스 Field 출력|
 |SELECT * [DB Field name] (key1, key2); |데이터 베이스내에 데이터 접근|
-|테스트1|테스트2|
+|SHOW COLUMNS FROM [TABLE name];| 컬럼정보 조회|
 ```
 docker exec -it db bash
 mysql -u root -p
