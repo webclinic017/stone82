@@ -4,13 +4,14 @@
 
 |cmd|내용
 |------|---|
-|CREATE DATABASE [DB name];|데이터 베이스 생성|
-|SHOW DATABASES;|데이터 베이스 출력|
-|USE [DB name];|데이터 베이스 선택|
-|DROP DATABASE [DB name];|[!] 데이터 베이스 삭제|
-|SHOW TABLES;|데이터 베이스 Field 출력|
-|SELECT * [DB Field name] (key1, key2); |데이터 베이스내에 데이터 접근|
-|SHOW COLUMNS FROM [TABLE name];| 컬럼정보 조회|
+|CREATE DATABASE [DB];|DB 생성|
+|SHOW DATABASES;|DB 출력|
+|USE [DB];|DB 선택|
+|DROP DATABASE [DB];|[!] DB 삭제|
+|SHOW TABLES;|TABLE 출력|
+|SELECT * [column name] (key1, key2); |DB내에 데이터 접근|
+|SHOW COLUMNS FROM [TABLE];| column 정보 조회|
+|ALTER TABLE [TABLE] ADD [column] [data type] null;| column 테이블에 추가|
 ```
 docker exec -it db bash
 mysql -u root -p
