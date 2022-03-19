@@ -11,7 +11,8 @@
 |SHOW TABLES;|TABLE 출력|
 |SELECT * [column name] (key1, key2); |DB내에 데이터 접근|
 |SHOW COLUMNS FROM [TABLE];| column 정보 조회|
-|ALTER TABLE [TABLE] ADD [column] [data type] null;| column 테이블에 추가|
+|ALTER TABLE [TABLE] ADD [column] [data type] null;| 테이블에 column 추가|
+|ALTER TABLE [TABLE] DROP COLUMN [column] ;| 테이블에 column 삭제|
 ```
 docker exec -it db bash
 mysql -u root -p
