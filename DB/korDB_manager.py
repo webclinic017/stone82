@@ -1,8 +1,7 @@
-from threading import Thread
+from matplotlib.pyplot import table
 import pandas as pd
 from bs4 import BeautifulSoup
 from pandas_datareader import data as pdr_data
-from datetime import datetime
 import urllib
 import pymysql
 import calendar
@@ -12,22 +11,24 @@ import os
 import requests
 import sys
 import dart_fss as dart
-from datetime import datetime
-import multiprocessing as mp
-from multiprocessing.pool import ThreadPool
-from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 import concurrent.futures
 from tqdm import tqdm
 import time
 import asyncio
-import zipfile
+import aiohttp
+import aiomysql
 import xml.etree.ElementTree as ET
+import zipfile
 import numpy as np
+from io import BytesIO
+
 
 
 KRX_URL = 'http://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13'
 NAVER_URL_BASE = 'https://finance.naver.com/item/sise_day.nhn?code'  # 068270&page=1'
 USER_AGENT = 'Mozilla/5.0'
+SLEEP_TIME = 0.1
 
 
 class KoreaDB_manager():
@@ -166,7 +167,7 @@ class KoreaDB_manager():
     # -------------------------------------------------
     # Data crawling modules
     # ------------------------------------------------
-    # def getDataFromDARTtoCSV(self, code, fsdata_dir='fsdata', bgn_de=20000101):
+
     def getDataFromDARTtoCSV(self, code):
         fsdata_dir = 'fsdata'
         bgn_de = 20000101
@@ -196,10 +197,104 @@ class KoreaDB_manager():
             else:
                 print(f"[E] skip file: {filepath}")
 
+    async def asyncFetchDataFromKRX(self, date):
+        date = date.replace('-','')
+
+        gen_otp_url = "http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
+        down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
+
+        gen_otp_data = {
+            'locale': 'ko_KR',
+            'mktId': 'ALL',
+            'trdDd': date,
+            'share': '1',
+            'money': '1',
+            'csvxls_isNo': 'false',
+            'name': 'fileDown',
+            'url': 'dbms/MDC/STAT/standard/MDCSTAT01501'
+        }
+        headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(gen_otp_url, headers=headers,params=gen_otp_data) as res_otp:
+                code = await res_otp.text()
+
+            async with session.post(down_url, data={'code':code}, headers=headers) as res_down:
+                content = await res_down.content.read()
+
+            df = pd.read_csv(BytesIO(content), encoding='EUC-KR')
+            df = df.rename(columns={
+                    '종목코드': 'code',
+                    '종목명': 'name',
+                    '시장구분': 'market',
+                    '날짜': 'date',
+                    '종가': 'close',
+                    '대비': 'diff',
+                    '시가': 'open',
+                    '고가': 'high',
+                    '저가': 'low',
+                    '거래량': 'volume',
+                    '거래대금': 'amount',
+                    '상장주식수': 'stock_num',
+                    '시가총액': 'cap'})
+
+            df['date'] = datetime.strptime(date,'%Y%m%d').date()
+            df = df[['code','date', 'name', 'market', 'close', 'diff', 'open', 'high', 'low', 'volume', 'amount', 'stock_num', 'cap']]
+        
+            df = df.dropna()
+            return df
+
+    def crawlDataFromKRX(self, date):
+
+        date = date.replace('-','')
+        # STEP 01: Generate OTP
+        gen_otp_url = "http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
+
+        gen_otp_data = {
+            'locale': 'ko_KR',
+            'mktId': 'ALL',
+            'trdDd': date,
+            'share': '1',
+            'money': '1',
+            'csvxls_isNo': 'false',
+            'name': 'fileDown',
+            'url': 'dbms/MDC/STAT/standard/MDCSTAT01501'
+        }
+        headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
+        r = requests.get(gen_otp_url, headers=headers, params=gen_otp_data)
+        code = r.text
+
+        down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
+        # requests Module의 post함수를 이용하여 해당 url에 접속하여 otp코드를 제출함
+        down_sector_KS  = requests.post(down_url, {'code':code}, headers=headers)
+        # 다운 받은 csv파일을 pandas의 read_csv 함수를 이용하여 읽어 들임. 
+        # read_csv 함수의 argument에 적합할 수 있도록 BytesIO함수를 이용하여 바이너 스트림 형태로 만든다.
+        df =  pd.read_csv(BytesIO(down_sector_KS.content), encoding='EUC-KR')    
+        df = df.rename(columns={
+                    '종목코드': 'code',
+                    '종목명': 'name',
+                    '시장구분': 'market',
+                    '날짜': 'date',
+                    '종가': 'close',
+                    '대비': 'diff',
+                    '시가': 'open',
+                    '고가': 'high',
+                    '저가': 'low',
+                    '거래량': 'volume',
+                    '거래대금': 'amount',
+                    '상장주식수': 'stock_num',
+                    '시가총액': 'cap'})
+        df = df[['code', 'name', 'market', 'close', 'diff', 'open', 'high', 'low', 'volume', 'amount', 'stock_num', 'cap']]
+        df = df.dropna()
+        
+        return df
+
+    # DEPRECATED
     def crawlDataFromYahoo(self, code, start, end=None):
 
         return pdr_data.get_data_yahoo(code, start, end)
-
+    
+    # DEPRECATED
     def crawlDataFromNaver(self, code=None, name=None, pages_to_fetch=9999):
         """ crawling data from Naver - update: 2021-01-31 """
 
@@ -260,26 +355,22 @@ class KoreaDB_manager():
             print('=================================================')
             return None
 
-        # with urlopen(url) as doc:
-        #     html = BeautifulSoup(doc, 'lxml')
-        #     print(html)
-        #     pgrr = html.find('td', class_='pgRR')
-        #     print(pgrr.a['href'])
-        # print(code)
-        # return data.get_data_yahoo(code, start, end)
-
-    def replaceIntoDB(self, df, num, code, company):
-        """네이버에서 읽어온 주식 시세를 DB에 REPLACE"""
+    def replaceIntoDB(self, df, date, TABLE='daily_price'):
+        """ DataFrame --> DB 에 REPLACE """
+        
         with self.connection.cursor() as curs:
             for r in df.itertuples():
-                sql = f"REPLACE INTO daily_price VALUES ('{code}', "\
-                    f"'{r.date}', {r.open}, {r.high}, {r.low}, {r.close}, "\
-                    f"{r.diff}, {r.volume})"
+                sql = f"""
+                    REPLACE INTO {TABLE} (
+                        code, date, name, open, high, low, close, diff, volume, market, amount, stock_num, cap
+                    ) VALUES (
+                        '{str(r.code).zfill(6)}', '{date}', '{r.name}', '{r.open}', '{r.high}', '{r.low}', '{r.close}', '{r.diff}', '{r.volume}', '{r.market}', '{r.amount}', '{r.stock_num}', '{r.cap}'
+                    )
+                """
                 curs.execute(sql)
             self.connection.commit()
-            date = datetime.now().strftime('%Y-%m-%d %H:%M')
             print(
-                f'[{date}] #{num+1:04d} {company} ({code}) : {len(df)} rows > REPLACE INTO daily_price [OK]')
+                f'[{date}]: {len(df)} rows > REPLACE INTO daily_price [OK]')
 
     def call_back(self, x):
         if x is not None:
@@ -289,7 +380,93 @@ class KoreaDB_manager():
         self.n += 1
         sys.stdout.write('\r%s/%s' % (self.n, '?'))
 
-    def updateDailyPrice(self, pages_to_fetch):
+    def updateDailyPrice(self, date):
+        """ KRX 상장법인의 주식 시세를 네이버로부터 읽어서 DB에 업데이트 """
+
+        # TODO: need to make parallel processing
+        df = self.crawlDataFromKRX(date)
+        if df.shape[0] != 0:
+            self.replaceIntoDB(df, date)
+        else:
+            print(f"[{date}]: skipped!")
+    
+
+    async def asyncUpdateDailyPrice(self, params:dict, start_date:str='19950502', TABLE:str = 'daily_price'):
+        """
+            params list:
+            - start_date: crawling date since {start_date} (default: '19950502')
+            - table_name: mysql database table name (default: daily_price)
+        """
+        start_date = params['start_date'] if 'start_date' in params else start_date
+        table = params['table'] if 'table' in params else TABLE
+        print(f"[D] asyncUpdateDailyPrice -> start_date: {start_date}" ) 
+        print(f"[D] asyncUpdateDailyPrice -> table_name: {table}" ) 
+
+
+        START = datetime.strptime(start_date,'%Y%m%d') # 1
+        TODAY = datetime.today()
+        DAYS = (TODAY - START).days 
+        df_list = []
+
+        for day in range(DAYS):
+            date = (START + timedelta(days=day)).strftime('%Y-%m-%d')
+            future = asyncio.ensure_future(self.asyncFetchDataFromKRX(date))
+            df = await asyncio.gather(future)
+            await asyncio.sleep(SLEEP_TIME)
+
+            if df[0].shape[0] != 0:
+                df_list.append(df[0])
+            else:
+                print(f"[{date}]: skipped!")
+
+            if day % 100 == 0:
+                print(f'days .. [{day}/{DAYS}]')
+    
+
+        connect = await aiomysql.connect(
+            host=os.environ.get('MYSQL_HOST'),
+            db='KOR_DB',
+            password=os.environ.get('MYSQL_ROOT_PASSWORD'),
+            user=os.environ.get('MYSQL_USER'),
+        )
+
+        cur = await connect.cursor()
+
+        for i, df in enumerate(df_list) :
+            for r in df.itertuples():
+                sql = f"""
+                    REPLACE INTO {table} (
+                        code, date, name, open, high, low, close, diff, volume, market, amount, stock_num, cap
+                    ) VALUES (
+                        '{str(r.code).zfill(6)}', '{r.date}', '{r.name}', '{r.open}', '{r.high}', '{r.low}', '{r.close}', '{r.diff}', '{r.volume}', '{r.market}', '{r.amount}', '{r.stock_num}', '{r.cap}'
+                    )
+                """
+                await cur.execute(sql)
+            if i % 100 == 0:
+                print(f'progress is [{i}/{len(df_list)}]')
+
+        await connect.commit()
+        await cur.close()
+        connect.close()
+
+    def runAsyncUpdate(self,funct, **kwargs):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(funct(kwargs))
+
+    def updateDailyPriceAll(self, start_year='19950502'):
+
+
+        START = datetime.strptime(start_year,'%Y%m%d') # 1
+        TODAY = datetime.today()
+        DAYS = (TODAY - START).days
+        DAYS = 30
+        
+        for i in range(DAYS):
+            date = (START + timedelta(days=i)).strftime('%Y-%m-%d')
+            self.updateDailyPrice(date)
+            
+    # DEPRECATED
+    def updateDailyPrice_(self, pages_to_fetch):
         """KRX 상장법인의 주식 시세를 네이버로부터 읽어서 DB에 업데이트"""
 
         # TODO: need to make parallel processing
@@ -306,7 +483,7 @@ class KoreaDB_manager():
         # print(f'runtime is: {t_stamp02-t_stamp01:.2f} sec\n# of core is: {num_proc}')
 
     def executeDaily(self, config_path):
-        """실행 즉시 및 매일 오후 다섯시에 daily_price 테이블 업데이트"""
+        """ 실행 즉시 및 매일 오후 다섯시에 daily_price 테이블 업데이트 """
         self.updateCompanyInfo()
 
         try:

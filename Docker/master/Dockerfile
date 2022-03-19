@@ -35,5 +35,6 @@ RUN curl https://bootstrap.pypa.io/pip/3.6/get-pip.py | python3 && \
         mplfinance \
         flask \
         slackeventsapi \
-        Pyyaml
+        Pyyaml \
+        aiomysql
 
