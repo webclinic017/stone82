@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 import time
 
 SLEEP_TIME = 60
-
+# TODO:
+# 1. company name 
 
 class KorFinStateModel():
 
@@ -90,9 +91,10 @@ class KorFinStateModel():
         """company_info 테이블에서 읽어와서 companyData와 codes에 저장"""
         sql = "SELECT * FROM company_info"
         companyInfo = pd.read_sql(sql, self.connection)
+        # print(companyInfo)
         for idx in range(len(companyInfo)):
             self.code_dict[companyInfo['code'].values[idx]
-                           ] = companyInfo['company'].values[idx]
+                           ] = companyInfo['name'].values[idx]
 
     def getDailyPrice(self, code, start_date=None, end_date=None):
         """KRX 종목의 일별 시세를 데이터프레임 형태로 반환
@@ -1101,7 +1103,7 @@ class KorFinStateModel():
             print(f"[E] there is no date [code]:{stock_code}")
             return None
 
-    def replaceIntoDB(self, data):
+    def replaceIntoDB(self, data:dict):
         """ 데이터를 DB에 저장하는 함수  """
         with self.connection.cursor() as curs:
             sql = f"""
@@ -1236,6 +1238,17 @@ class KorFinStateModel():
                 print(f"[I] sleep {SLEEP_TIME} sec ..")
                 time.sleep(SLEEP_TIME)
 
+    def getNullRatioFromDF(self, df, ratio=0.07):         
+        null_count = np.bincount(np.where(df == 'None')[1],minlength=df.shape[1])
+        null_ratio_value = null_count/df.shape[0]
+        null_ratio = dict(zip(df.keys(),null_ratio_value))
+
+        print(f"[D] ratio: {ratio}")
+        null_ratio_cond = {k: round(v,4) for k, v in null_ratio.items() if v > ratio}
+        # print(null_ratio_cond)
+        return null_ratio, null_ratio_cond
+        
+
 
 if __name__ == '__main__':
 
@@ -1259,11 +1272,12 @@ if __name__ == '__main__':
         dart_key=dart_key
     )
     # kor_model.updateFinStateToDB("2019", "11011")
-    # result = kor_model.prepFinState("005380", "2019", "11011")
+    result = kor_model.prepFinState("005380", "2019", "11011")
+    print(result)
     # kor_model.replaceIntoDB(result)
     df_all = kor_model.getFinStateFromDB_all("2019", "11011")
     # df_all.to_csv("2019_FinState_all.csv",encoding="euc-kr")
-    print(df_all.loc[:,df_all['ROE']])
+    # print(df_all.loc[:,df_all['ROE']])
     # print(df_all['ROE'])
     # print(test)
     # test = os.environ.get('MYSQL_ROOT_PASSWORD')
