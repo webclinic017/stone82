@@ -2,8 +2,8 @@ version: '2.3'
 
 services:
   
-  cools-master:
-    container_name: master
+  charge-master:
+    container_name: charge-master
     image: stone82_master:0.0.1
     network_mode: host
     tty: true
@@ -19,21 +19,21 @@ services:
       - ./dev_env/.vimrc:/root/.vimrc
       - ./dev_env/.bashrc:/root/.bashrc
       - /mnt:/mnt
-      - /home/coolseaweed/.ssh:/root/.ssh
-      - /home/coolseaweed/.vscode-server/:/root/.vscode-server/
+      - /home/charge/.ssh:/root/.ssh
+      - /home/charge/.vscode-server:/root/.vscode-server
     working_dir: /opt/workspace
     command: /bin/bash
 
 
-  db:
-    container_name: db
-    image: mariadb:10.5
-    ports:
-      - 3306:3306
-    env_file: dev_env/.env
-    environment:
-      TZ: Asia/Seoul
+  # db:
+  #   container_name: db
+  #   image: mariadb:10.5
+  #   ports:
+  #     - 3306:3306
+  #   env_file: dev_env/.env
+  #   environment:
+  #     TZ: Asia/Seoul
 
-    volumes:
-      - /mnt/d/data/stone82/mysql/:/var/lib/mysql/
+  #   volumes:
+  #     - /mnt/d/data/stone82/mysql/:/var/lib/mysql/
     

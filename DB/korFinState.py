@@ -1208,10 +1208,11 @@ class KorFinStateModel():
             return df
 
     def getFinStateFromDB_all(self, year, report_code):
-        """ DB로 부터 연도 및 보고서 코드를 기준으로 재무제표 불러오는 함수 """
 
+        
         sql = f"""
-            SELECT * FROM finance_state WHERE year = '{year}' and report_code = '{report_code}'
+            SELECT * FROM finance_state WHERE
+            year = '{year}' and report_code = '{report_code}'
         """
         df = pd.read_sql(sql, self.connection)
         return df
@@ -1257,13 +1258,12 @@ if __name__ == '__main__':
         pwd=pwd,
         dart_key=dart_key
     )
-    # test = kor_model.getFinStateFromDB_all("2019", "11011")
-    # test.to_csv("2019_11011_all.csv", encoding="euc-kr")
-    # print(test)
     # kor_model.updateFinStateToDB("2019", "11011")
-    result = kor_model.prepFinState("005380", "2019", "11011")
-    print(result)
-    kor_model.replaceIntoDB(result)
-    # test = kor_model.getFinStateFromDB("005380", "2019", "11011")
+    # result = kor_model.prepFinState("005380", "2019", "11011")
+    # kor_model.replaceIntoDB(result)
+    df_all = kor_model.getFinStateFromDB_all("2019", "11011")
+    # df_all.to_csv("2019_FinState_all.csv",encoding="euc-kr")
+    print(df_all.loc[:,df_all['ROE']])
+    # print(df_all['ROE'])
     # print(test)
     # test = os.environ.get('MYSQL_ROOT_PASSWORD')
