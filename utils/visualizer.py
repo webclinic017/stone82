@@ -28,7 +28,7 @@ class Visualizer:
 
     # ------------------------- Plotting funct. ------------------------- #
 
-    def drawCandleStick(self, data,  ma_list, title='Candle chart'):
+    def drawCandleStick(self, data,  ma_list=None, title='Candle chart'):
         """ Ploting basic candle stick chart """
 
         # set fig
@@ -41,8 +41,8 @@ class Visualizer:
         bottom_axes.get_yaxis().get_major_formatter().set_scientific(False)
 
         # top axes
-        if len(ma_list) > 0:
-            color_list = ['k', 'y', 'g', 'orange', 'c']
+        if ma_list is not None :
+            color_list = ['k', 'y', 'g', 'orange', 'c', 'k']
 
             for idx, ma in enumerate(ma_list):
                 ma_data = analyzer.getMovingAvg(data, ma)
@@ -58,8 +58,8 @@ class Visualizer:
             top_axes.legend(loc='best', fontsize=15)
 
         else:
-            dt_range = pd.date_range(start=start_date, end=end_date)
-            data = data[data.index.isin(dt_range)]
+            # dt_range = pd.date_range(start=start_date, end=end_date)
+            # data = data[data.index.isin(dt_range)]
             index = data.index.astype('str')
 
         candlestick2_ohlc(top_axes, data['open'], data['high'], data['low'],

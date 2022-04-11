@@ -12,11 +12,12 @@ class DataBase:
         host,
         db_name,
         pwd,
+        sql_file=None,
         user='root',
         port=3306,
         autocommit=True
     ):
-        """생성자: MariaDB 연결 및 종목코드 딕셔너리 생성"""
+        """ 생성자: MariaDB 연결 및 종목코드 딕셔너리 생성 """
 
         self.connection = pymysql.connect(
             host=host,
@@ -26,12 +27,34 @@ class DataBase:
             passwd=pwd,
             autocommit=autocommit
         )
+        if sql_file is not None:
+            self.initDB(sql_file)
         self.code_dict = dict()
-        self.getCompanyInfo()
+        # self.getCompanyInfo()
 
     def __del__(self):
         """소멸자: MariaDB 연결 해제"""
         self.connection.close()
+
+    def parse_sql(self, sql_file, delimiter=';'):
+        sql_list = []
+        with open(sql_file, 'r') as f:
+            sql = f.read().strip()
+            sql = sql.replace('\n', '')
+            sqls = sql.split(delimiter)
+        for sql in sqls:
+            if len(sql) > 0:
+                sql_list.append(f'{sql}{delimiter}')
+
+        return sql_list
+
+    def initDB(self, sql_file):
+
+        sql_list = self.parse_sql(sql_file)
+        with self.connection.cursor() as cur:
+            for sql in sql_list:
+                cur.execute(sql)
+        self.connection.commit()
 
     def checkDateFormat(self, date):
         date_lst = re.split('\D+', date)
@@ -50,7 +73,6 @@ class DataBase:
 
         if day < 1 or day > 31:
             raise ValueError(f"day: {day:d} is wrong.")
-        
 
     def getCode(self, target_name):
         for code, name in self.code_dict.items():
@@ -65,10 +87,12 @@ class DataBase:
     def getCompanyInfo(self):
         """ company_info 테이블에서 읽어와서 companyData와 codes에 저장 """
         sql = "SELECT * FROM company_info"
-        companyInfo = pd.read_sql(sql, self.connection)
-        for idx in range(len(companyInfo)):
-            self.code_dict[companyInfo['code'].values[idx]
-                           ] = companyInfo['company'].values[idx]
+        df = pd.read_sql(sql, self.connection)
+        for idx in range(len(df)):
+            self.code_dict[df['code'].values[idx]
+                           ] = df['name'].values[idx]
+
+        return df
 
     def getDailyPrice(self, target, start_date=None, end_date=None):
         """ KRX 종목의 일별 시세를 데이터프레임 형태로 반환
@@ -81,8 +105,8 @@ class DataBase:
             one_year_ago = datetime.today() - timedelta(days=365)
             start_date = one_year_ago.strftime('%Y-%m-%d')
             print(f"[I] start_date is initialized to '{start_date}'")
-        
-        self.checkDateFormat(start_date)              
+
+        self.checkDateFormat(start_date)
 
         if end_date is None:
             end_date = datetime.today().strftime('%Y-%m-%d')
@@ -96,8 +120,8 @@ class DataBase:
             df.index = df['date']
             df = df.drop(['date'], axis=1)
             return df
-        
-        elif isinstance(target,list):
+
+        elif isinstance(target, list):
             result = {}
             for code in target:
                 sql = f"SELECT * FROM daily_price WHERE code = '{code}' and date >= '{start_date}' and date <= '{end_date}'"
@@ -105,34 +129,20 @@ class DataBase:
                 df.index = df['date']
                 df = df.drop(['code', 'date'], axis=1)
                 result[code] = df
-            
+
             return result
 
         else:
-            sql = f"SELECT * FROM daily_price WHERE code = '{target}' and date >= '{start_date}' and date <= '{end_date}'"
-            # sql = f"SELECT * FROM daily_price WHERE date >= '{start_date}' and date <= '{end_date}'"
+            sql = f"""
+            SELECT * FROM daily_price WHERE 
+                code = '{target}' 
+                AND date BETWEEN '{start_date}' AND '{end_date}'
+            """
 
             df = pd.read_sql(sql, self.connection)
             df.index = df['date']
             df = df.drop(['code', 'date'], axis=1)
             return df
-
-            # code_list = list(self.code_dict.keys())
-        # name_list = list(self.code_dict.values())
-
-        # if code in code_list:
-        #     pass
-        # elif code in name_list:
-        #     idx = name_list.index(code)
-        #     code = code_list[idx]
-        # else:
-        #     print(f"ValueError: Code({code}) doesn't exist.")
-        # sql = f"SELECT * FROM daily_price WHERE code = '{code}'"\
-        #     f" and date >= '{start_date}' and date <= '{end_date}'"
-        # df = pd.read_sql(sql, self.connection)
-        # df.index = df['date']
-        # df = df.drop(['code', 'date'], axis=1)
-        # return df
 
     def getRltvMomntm(self, stock_count, start_date, end_date):
         """특정 기간 동안 수익률이 제일 높았던 stock_count 개의 종목들 (상대 모멘텀)

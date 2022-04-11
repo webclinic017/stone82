@@ -24,7 +24,6 @@ import numpy as np
 from io import BytesIO
 
 
-
 KRX_URL = 'http://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13'
 NAVER_URL_BASE = 'https://finance.naver.com/item/sise_day.nhn?code'  # 068270&page=1'
 USER_AGENT = 'Mozilla/5.0'
@@ -50,33 +49,9 @@ class KoreaDB_manager():
             passwd=pwd,
             autocommit=autocommit
         )
-
-        with self.connection.cursor() as cursor:
-            sql = """
-            CREATE TABLE IF NOT EXISTS company_info (
-                code VARCHAR(20),
-                company VARCHAR(40),
-                last_update DATE,
-                PRIMARY KEY (code))
-            """
-            cursor.execute(sql)
-            sql = """
-            CREATE TABLE IF NOT EXISTS daily_price (
-                code VARCHAR(20),
-                date DATE,
-                open BIGINT(20),
-                high BIGINT(20),
-                low BIGINT(20),
-                close BIGINT(20),
-                diff BIGINT(20),
-                volume BIGINT(20),
-                PRIMARY KEY (code, date))
-            """
-            cursor.execute(sql)
-
-        self.connection.commit()
+        self.start_date = '19950502'
         self.code_dict = dict()
-        self.updateCompanyInfo()
+        # self.updateCompanyInfo()
 
     def __del__(self):
         """ destructor: MariaDB disconnection   """
@@ -133,33 +108,122 @@ class KoreaDB_manager():
                               == stock_code]['corp_code'].to_numpy()
         return result[0] if len(result) == 1 else None
 
-    def updateCompanyInfo(self):
-        """ 종목코드를 company_info 테이블에 업데이트 한 후 딕셔너리에 저장 """
+    async def asyncUpdateCompanyInfo(self, params: dict, start_date: str = '19950502'):
 
-        sql = "SELECT * FROM company_info"
-        df = pd.read_sql(sql, self.connection)
-        for idx in range(len(df)):
-            self.code_dict[df['code'].values[idx]] = df['company'].values[idx]
+        """ 종목코드를 company_info 테이블에 업데이트 한 후 딕셔너리에 저장 """
 
         with self.connection.cursor() as curs:
             sql = "SELECT max(last_update) FROM company_info"
             curs.execute(sql)
             rs = curs.fetchone()
             today = datetime.today().strftime('%Y-%m-%d')
+
             if rs[0] == None or rs[0].strftime('%Y-%m-%d') < today:
-                krx = self.getKRXcodes()
-                for idx in range(len(krx)):
-                    code = krx.code.values[idx]
-                    company = krx.company.values[idx]
-                    sql = f"REPLACE INTO company_info (code, company, last"\
-                        f"_update) VALUES ('{code}', '{company}', '{today}')"
-                    curs.execute(sql)
-                    self.code_dict[code] = company
-                    tmnow = datetime.now().strftime('%Y-%m-%d %H:%M')
-                    print(f"[{tmnow}] #{idx+1:04d} REPLACE INTO company_info "
-                          f"VALUES ({code}, {company}, {today})")
-                self.connection.commit()
-                print('')
+                start_date = params['start_date'] if 'start_date' in params else start_date
+                price_table = params['price_table'] if 'price_table' in params else 'daily_price'
+                info_table = params['info_table'] if 'info_table' in params else 'company_info'
+
+                start_date = datetime.strptime(start_date, '%Y%m%d')
+                print(f"[D] asyncUpdateCompanyInfo -> update company info .. ")
+                print(
+                    f"[D] asyncUpdateCompanyInfo -> start_date: {start_date}")
+                print(
+                    f"[D] asyncUpdateCompanyInfo -> price_table: {price_table}")
+                print(
+                    f"[D] asyncUpdateCompanyInfo -> info_table: {info_table}")
+
+                sql = f""" SELECT code,market,name FROM {price_table} WHERE date >= '{start_date}' """
+                df = pd.read_sql(sql, self.connection)
+                df = df.drop_duplicates()
+                print(f"[D] asyncUpdateCompanyInfo -> total df len: {len(df)}")
+
+                connect = await aiomysql.connect(
+                    host=os.environ.get('MYSQL_HOST'),
+                    db='KOR_DB',
+                    password=os.environ.get('MYSQL_ROOT_PASSWORD'),
+                    user=os.environ.get('MYSQL_USER'),
+                )
+                cur = await connect.cursor()
+                for r in df.itertuples():
+                    sql = f"""
+                    REPLACE INTO {info_table} (code, name, market, last_update) VALUES ('{r.code}', '{r.name}', '{r.market}', '{today}') 
+                    """
+                    await cur.execute(sql)
+                    print(f"[{today}] {r.code} REPLACE INTO {info_table}")
+
+                await connect.commit()
+                await cur.close()
+                connect.close()
+                print(f"[D] asyncUpdateCompanyInfo -> done!")
+
+    async def calAdjPrice(self, code, connect, start_date, end_date):
+        # await sem.acquire()
+
+        cur = await connect.cursor()
+        sql = f"""
+            SELECT ref_close, ref_open, close, adj_close, split_coefficient, date
+            FROM daily_price 
+            WHERE code = '{code}'
+            AND date BETWEEN '{start_date}' AND '{end_date}'
+        """
+        data = pd.read_sql(sql, self.connection)
+        if data['ref_close'].iloc[0] == 0:
+            data['ref_close'].iloc[0] = data['ref_open'].iloc[1]
+        data['split_coefficient'] = (
+            data['ref_close'] / data['ref_open'].shift(-1)).fillna(1)
+        data['split_coefficient'] = data['split_coefficient'].iloc[::-
+                                                                   1].cumprod().iloc[::-1]
+        data['adj_close'] = data['close'] / data['split_coefficient']
+
+        is_null = data['adj_close'].isna().values.any()
+        if not is_null and data.shape[0] != 0:
+            for r in data.itertuples():
+                sql = f"""
+                UPDATE daily_price SET 
+                    adj_close = '{r.adj_close}', 
+                    split_coefficient = '{r.split_coefficient}'
+                WHERE 
+                    code = '{code}' and date = '{r.date}'
+                """
+                await cur.execute(sql)
+
+            print(f"[I] code: {code} applied!")
+            # print(f"[E] code: {code} had wrong value -> skipped!")
+
+        else:
+            print(
+                f"[W] code: {code} invalid -> [ shape: {data.shape} / is_null: {is_null} ] skipped!")
+
+        await connect.commit()
+        await cur.close()
+        # sem.release()
+
+    async def asyncUpdateAdjPrice(self, params: dict):
+
+        start_date = params['start_date'] if 'start_date' in params else '2000-01-01'
+        end_date = params['end_date'] if 'end_date' in params else str(
+            datetime.today().date())
+
+        print(f"[D] start_date: {start_date}")
+        print(f"[D] end_date: {end_date}")
+
+        with self.connection.cursor() as curs:
+            sql = f""" SELECT (code) FROM company_info"""
+            df = pd.read_sql(sql, self.connection)
+
+        # sem = asyncio.Semaphore(50)
+        connect = await aiomysql.connect(
+            host=os.environ.get('MYSQL_HOST'),
+            db='KOR_DB',
+            password=os.environ.get('MYSQL_ROOT_PASSWORD'),
+            user=os.environ.get('MYSQL_USER'),
+        )
+
+        code_list = df['code'].to_list()
+        future = [asyncio.ensure_future(self.calAdjPrice(
+            code, connect, start_date, end_date)) for code in code_list]
+        await asyncio.gather(*future)
+        connect.close()
 
     def getCodes(self):
         return self.code_dict
@@ -198,7 +262,7 @@ class KoreaDB_manager():
                 print(f"[E] skip file: {filepath}")
 
     async def asyncFetchDataFromKRX(self, date):
-        date = date.replace('-','')
+        date = date.replace('-', '')
 
         gen_otp_url = "http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
         down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
@@ -213,40 +277,71 @@ class KoreaDB_manager():
             'name': 'fileDown',
             'url': 'dbms/MDC/STAT/standard/MDCSTAT01501'
         }
+
+        gen_otp_ref_data = {
+            'locale': 'ko_KR',
+            'mktId': 'STK',
+            'strtDd': date,
+            'endDd': date,
+            'adjStkPrc_check': 'Y',
+            'adjStkPrc': '2',
+            'share': '1',
+            'money': '1',
+            'csvxls_isNo': 'false',
+            'name': 'fileDown',
+            'url': 'dbms/MDC/STAT/standard/MDCSTAT01602'
+        }
+
         headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(gen_otp_url, headers=headers,params=gen_otp_data) as res_otp:
-                code = await res_otp.text()
+            async with session.get(gen_otp_url, headers=headers, params=gen_otp_data) as res_otp:
+                base_code = await res_otp.text()
 
-            async with session.post(down_url, data={'code':code}, headers=headers) as res_down:
-                content = await res_down.content.read()
+            async with session.get(gen_otp_url, headers=headers, params=gen_otp_ref_data) as res_otp:
+                ref_code = await res_otp.text()
 
-            df = pd.read_csv(BytesIO(content), encoding='EUC-KR')
+            async with session.post(down_url, data={'code': base_code}, headers=headers) as res_down:
+                base_content = await res_down.content.read()
+
+            async with session.post(down_url, data={'code': ref_code}, headers=headers) as res_down:
+                ref_content = await res_down.content.read()
+
+            df = pd.read_csv(BytesIO(base_content), encoding='EUC-KR')
+            ref_df = pd.read_csv(BytesIO(ref_content), encoding='EUC-KR')
+            ref_df = ref_df[['종목코드', '시작일 기준가', '종료일 종가']]
+            df = pd.merge(left=df, right=ref_df, how='left', on='종목코드')
             df = df.rename(columns={
-                    '종목코드': 'code',
-                    '종목명': 'name',
-                    '시장구분': 'market',
-                    '날짜': 'date',
-                    '종가': 'close',
-                    '대비': 'diff',
-                    '시가': 'open',
-                    '고가': 'high',
-                    '저가': 'low',
-                    '거래량': 'volume',
-                    '거래대금': 'amount',
-                    '상장주식수': 'stock_num',
-                    '시가총액': 'cap'})
+                '종목코드': 'code',
+                '종목명': 'name',
+                '시장구분': 'market',
+                '날짜': 'date',
+                '종가': 'close',
+                '대비': 'diff',
+                '시가': 'open',
+                '고가': 'high',
+                '저가': 'low',
+                '거래량': 'volume',
+                '거래대금': 'amount',
+                '상장주식수': 'stock_num',
+                '시가총액': 'cap',
+                '시작일 기준가': 'ref_open',
+                '종료일 종가': 'ref_close'})
 
-            df['date'] = datetime.strptime(date,'%Y%m%d').date()
-            df = df[['code','date', 'name', 'market', 'close', 'diff', 'open', 'high', 'low', 'volume', 'amount', 'stock_num', 'cap']]
-        
-            df = df.dropna()
+            df['date'] = datetime.strptime(date, '%Y%m%d').date()
+
+            df = df[['code', 'date', 'name', 'market', 'close', 'diff', 'open', 'high',
+                     'low', 'volume', 'amount', 'stock_num', 'cap', 'ref_open', 'ref_close']]
+            df = df.dropna(subset=['code', 'date', 'name', 'market', 'close', 'diff',
+                           'open', 'high', 'low', 'volume', 'amount', 'stock_num', 'cap'])
+
+            df = df.fillna(1)
+
             return df
 
     def crawlDataFromKRX(self, date):
 
-        date = date.replace('-','')
+        date = date.replace('-', '')
         # STEP 01: Generate OTP
         gen_otp_url = "http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
 
@@ -266,12 +361,13 @@ class KoreaDB_manager():
 
         down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
         # requests Module의 post함수를 이용하여 해당 url에 접속하여 otp코드를 제출함
-        down_sector_KS  = requests.post(down_url, {'code':code}, headers=headers)
-        # 다운 받은 csv파일을 pandas의 read_csv 함수를 이용하여 읽어 들임. 
+        down_sector_KS = requests.post(
+            down_url, {'code': code}, headers=headers)
+        # 다운 받은 csv파일을 pandas의 read_csv 함수를 이용하여 읽어 들임.
         # read_csv 함수의 argument에 적합할 수 있도록 BytesIO함수를 이용하여 바이너 스트림 형태로 만든다.
-        df =  pd.read_csv(BytesIO(down_sector_KS.content), encoding='EUC-KR')    
+        df = pd.read_csv(BytesIO(down_sector_KS.content), encoding='EUC-KR')
         df = df.rename(columns={
-                    '종목코드': 'code',
+            '종목코드': 'code',
                     '종목명': 'name',
                     '시장구분': 'market',
                     '날짜': 'date',
@@ -284,16 +380,17 @@ class KoreaDB_manager():
                     '거래대금': 'amount',
                     '상장주식수': 'stock_num',
                     '시가총액': 'cap'})
-        df = df[['code', 'name', 'market', 'close', 'diff', 'open', 'high', 'low', 'volume', 'amount', 'stock_num', 'cap']]
+        df = df[['code', 'name', 'market', 'close', 'diff', 'open',
+                 'high', 'low', 'volume', 'amount', 'stock_num', 'cap']]
         df = df.dropna()
-        
+
         return df
 
     # DEPRECATED
     def crawlDataFromYahoo(self, code, start, end=None):
 
         return pdr_data.get_data_yahoo(code, start, end)
-    
+
     # DEPRECATED
     def crawlDataFromNaver(self, code=None, name=None, pages_to_fetch=9999):
         """ crawling data from Naver - update: 2021-01-31 """
@@ -357,7 +454,7 @@ class KoreaDB_manager():
 
     def replaceIntoDB(self, df, date, TABLE='daily_price'):
         """ DataFrame --> DB 에 REPLACE """
-        
+
         with self.connection.cursor() as curs:
             for r in df.itertuples():
                 sql = f"""
@@ -389,23 +486,22 @@ class KoreaDB_manager():
             self.replaceIntoDB(df, date)
         else:
             print(f"[{date}]: skipped!")
-    
 
-    async def asyncUpdateDailyPrice(self, params:dict, start_date:str='19950502', TABLE:str = 'daily_price'):
+    async def asyncUpdateDailyPrice(self, params: dict):
         """
             params list:
             - start_date: crawling date since {start_date} (default: '19950502')
-            - table_name: mysql database table name (default: daily_price)
+            - table: mysql database table name (default: daily_price)
         """
-        start_date = params['start_date'] if 'start_date' in params else start_date
-        table = params['table'] if 'table' in params else TABLE
-        print(f"[D] asyncUpdateDailyPrice -> start_date: {start_date}" ) 
-        print(f"[D] asyncUpdateDailyPrice -> table_name: {table}" ) 
+        start_date = params['start_date'] if 'start_date' in params else '19950502'
+        table = params['table'] if 'table' in params else 'daily_price'
+        print(f"[D] asyncUpdateDailyPrice -> start_date: {start_date}")
+        print(f"[D] asyncUpdateDailyPrice -> table_name: {table}")
 
-
-        START = datetime.strptime(start_date,'%Y%m%d') # 1
+        START = datetime.strptime(start_date, '%Y%m%d')  # 1
         TODAY = datetime.today()
-        DAYS = (TODAY - START).days 
+        DAYS = (TODAY - START).days
+        # DAYS = 10 # DEBUG
         df_list = []
 
         for day in range(DAYS):
@@ -421,7 +517,6 @@ class KoreaDB_manager():
 
             if day % 100 == 0:
                 print(f'days .. [{day}/{DAYS}]')
-    
 
         connect = await aiomysql.connect(
             host=os.environ.get('MYSQL_HOST'),
@@ -432,14 +527,16 @@ class KoreaDB_manager():
 
         cur = await connect.cursor()
 
-        for i, df in enumerate(df_list) :
+        for i, df in enumerate(df_list):
             for r in df.itertuples():
+                # if str(r.code).zfill(6) == '950210':
+                #     print(r)
                 sql = f"""
-                    REPLACE INTO {table} (
-                        code, date, name, open, high, low, close, diff, volume, market, amount, stock_num, cap
-                    ) VALUES (
-                        '{str(r.code).zfill(6)}', '{r.date}', '{r.name}', '{r.open}', '{r.high}', '{r.low}', '{r.close}', '{r.diff}', '{r.volume}', '{r.market}', '{r.amount}', '{r.stock_num}', '{r.cap}'
-                    )
+                REPLACE INTO {table} (
+                    code, date, name, open, high, low, close, diff, volume, market, amount, stock_num, cap, ref_open, ref_close
+                ) VALUES (
+                    '{str(r.code).zfill(6)}', '{r.date}', '{r.name}', '{r.open}', '{r.high}', '{r.low}', '{r.close}', '{r.diff}', '{r.volume}', '{r.market}', '{r.amount}', '{r.stock_num}', '{r.cap}', '{r.ref_open}', '{r.ref_close}'
+                )
                 """
                 await cur.execute(sql)
             if i % 100 == 0:
@@ -449,22 +546,21 @@ class KoreaDB_manager():
         await cur.close()
         connect.close()
 
-    def runAsyncUpdate(self,funct, **kwargs):
+    def runAsyncUpdate(self, funct, **kwargs):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(funct(kwargs))
 
     def updateDailyPriceAll(self, start_year='19950502'):
 
-
-        START = datetime.strptime(start_year,'%Y%m%d') # 1
+        START = datetime.strptime(start_year, '%Y%m%d')  # 1
         TODAY = datetime.today()
         DAYS = (TODAY - START).days
         DAYS = 30
-        
+
         for i in range(DAYS):
             date = (START + timedelta(days=i)).strftime('%Y-%m-%d')
             self.updateDailyPrice(date)
-            
+
     # DEPRECATED
     def updateDailyPrice_(self, pages_to_fetch):
         """KRX 상장법인의 주식 시세를 네이버로부터 읽어서 DB에 업데이트"""
@@ -480,8 +576,7 @@ class KoreaDB_manager():
             self.replaceIntoDB(df, idx, code, self.code_dict[code])
         t_stamp02 = time.time()
 
-        # print(f'runtime is: {t_stamp02-t_stamp01:.2f} sec\n# of core is: {num_proc}')
-
+    # DEPRECATED
     def executeDaily(self, config_path):
         """ 실행 즉시 및 매일 오후 다섯시에 daily_price 테이블 업데이트 """
         self.updateCompanyInfo()
