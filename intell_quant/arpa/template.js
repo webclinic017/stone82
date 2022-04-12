@@ -8,6 +8,8 @@ IQEnvironment.etfCommission = 0.0015;
 IQEnvironment.stockTax = 0.003;
 IQEnvironment.simulationMethod = SimulationMethod.normal;
 
+// var minFscore = 2;
+
 var PORT_portfolio1 = {
     "weight": function () {
         return 0.9;
@@ -15,7 +17,7 @@ var PORT_portfolio1 = {
 
     },
     "targetSize": function () {
-        return 20;
+        return 30;
     },
     "filter": Filter_portfolio1,
     "factor": FactorIndex_portfolio1
@@ -36,17 +38,17 @@ var Filter_portfolio1 = {
         "andOr": "AND"
     },
     "percentCap": {
-        "percent": 100,
-        "direction": "ABOVE",
+        "percent": 80,
+        "direction": "BELOW",
         "refCapSize": 0 // 초기값
     },
     "liquidity": {
         "period": 1,
-        "threshold": 1
+        "threshold": 0
     },
-    "noNegProfit": true,
-    "noNegCashflow": true,
-    "noManaged": true,
+    "noNegProfit": false,
+    "noNegCashflow": false,
+    "noManaged": false,
 };
 
 var FactorIndex_portfolio1 = {
@@ -61,7 +63,7 @@ var FactorIndex_portfolio1 = {
     "_roa": [0, RankOrder.descending],
     "_roe": [0, RankOrder.descending],
     "_ros": [0, RankOrder.descending],
-    "_gpoa": [0, RankOrder.descending],
+    "_gpoa": [1, RankOrder.descending],
     "_evoebitda": [0, RankOrder.descending],
     "_evoebit": [0, RankOrder.descending],
 
@@ -103,7 +105,7 @@ var FactorEval_portfolio1 = {
 // Portfolio Builder
 function builder_portfolio1(targetSize) {
     // 종목 필터 적용
-    // makeCapSizeRef(Filter_portfolio1);
+    makeCapSizeRef(Filter_portfolio1);
     var universe = IQStock.filter(filterfn_portfolio1);
 
     // 종목선정 기본지표 및 사용자정의 지표 통합
@@ -518,13 +520,15 @@ var FactorEval_default = {
     },
 
     "_fscore": function (stock) {
-        var score = getFscore(stock)
 
-        logger.debug("code: " + stock.code + " score: " + score)
-        // return stock.getMarketCapital();
+        var score = getFscore(stock)
+        if (score === Infinity || isNaN(score)) {
+            logger.debug('WARNING: 종목코드 ' + stock.code + '에 대한 F-score 지표값이 (' + score + ') 입니다. -99999999으로 대체합니다.');
+            return -99999999;
+        }
+        return score;
     }
 }
-
 
 var BL_portfolio = [PORT_portfolio1];
 var BL_builder = [builder_portfolio1];
@@ -538,7 +542,12 @@ function initialize() {
         BL_basket[i].setPortfolioBuilder(BL_builder[i]);
     }
 
-    IQDate.addRebalSchedule(IQDate.setMonthlyStart(1));
+    // IQDate.addRebalSchedule(IQDate.setMonthlyStart(1));
+    IQDate.addRebalSchedule(IQDate.setYearly(4, 1));
+    IQDate.addRebalSchedule(IQDate.setYearly(6, 1));
+    IQDate.addRebalSchedule(IQDate.setYearly(9, 1));
+    IQDate.addRebalSchedule(IQDate.setYearly(12, 1));
+
 }
 
 var isFirst = true;
