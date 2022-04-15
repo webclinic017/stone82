@@ -471,8 +471,8 @@ var FactorEval_default = {
         }
 
 
-        var EV = stock.getFundamentalEV()
-        var EBIT = stock.getFundamentalEBIT()
+        // var EV = stock.getFundamentalEV()
+        // var EBIT = stock.getFundamentalEBIT()
 
         // logger.debug('[' + stock.code + ']' + stock.name);
         // logger.debug('EV: ' + EV + ' / ' + 'EBITDA: ' + EBITDA + ' / ' + 'EVoEBITDA: '  + EVoEBITDA)
@@ -485,7 +485,7 @@ var FactorEval_default = {
             return -99999999;
         }
 
-        return (EBIT * 4) / EV;
+        return stock.getFundamentalEBIT() / stock.getFundamentalEV();
     },
 
 
