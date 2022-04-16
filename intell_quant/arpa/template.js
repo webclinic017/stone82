@@ -9,6 +9,7 @@ IQEnvironment.stockTax = 0.003;
 IQEnvironment.simulationMethod = SimulationMethod.normal;
 
 // var minFscore = 2;
+var rsiPeriod = 10;             // 기술적 지표 RSI의 기간 설정. 대체로 사용되는 값은 9일, 14~15일, 25~28일 등이다.(위키백과)
 
 var PORT_portfolio1 = {
     "weight": function () {
@@ -60,23 +61,26 @@ var FactorIndex_portfolio1 = {
     "_pcr": [0, RankOrder.descending],
 
     // Quality factor
-    "_roa": [0, RankOrder.descending],
-    "_roe": [0, RankOrder.descending],
-    "_ros": [0, RankOrder.descending],
-    "_gpoa": [1, RankOrder.descending],
+    "roa": [0, RankOrder.descending],
+    "roe": [0, RankOrder.descending],
+    "ros": [0, RankOrder.descending],
+    "gpoa": [0, RankOrder.descending],
     "_evoebitda": [0, RankOrder.descending],
     "_evoebit": [0, RankOrder.descending],
 
     // Momentum factor
-    "_tsm12": [0, RankOrder.descending],
-    "_tsm6": [0, RankOrder.descending],
-    "_tsm3": [0, RankOrder.descending],
+    "tsm12": [0, RankOrder.descending],
+    "tsm6": [0, RankOrder.descending],
+    "tsm3": [0, RankOrder.descending],
 
     // Size factor
-    "_capsize": [0, RankOrder.ascending],
+    "capsize": [0, RankOrder.ascending],
 
     // F-score
-    "_fscore": [1, RankOrder.descending]
+    "fscore": [0, RankOrder.descending],
+
+    // Techincal factor
+    "_rsi": [1, RankOrder.descending]
 };
 
 
@@ -381,16 +385,16 @@ function avgTrval(stock, period) {
 
 // Factor evaluation functions
 var FactorEval_default = {
-    // Default factors
+    /**** Value Factors ****/
+    // PER(역): 시가총액 / 당기순이익 := 주가수익비율 (낮을수록 좋음)
     "_per": function (stock) {
         if (stock.getMarketCapital() === 0) {
             return -99999999;
         }
-        var _PER = (stock.getFundamentalNetProfit() * 4) / (stock.getMarketCapital() * 1000);
-        // logger.debug('[' + stock.code + ']' + stock.name + '-> _PER: ' + _PER);
-        return _PER;
+        return (stock.getFundamentalNetProfit() * 4) / (stock.getMarketCapital() * 1000);
     },
 
+    // PBR(역): 시가총액 / 순자산 := 주가순자산비율 (낮을수록 좋음)
     "_pbr": function (stock) {
         if (stock.getMarketCapital() === 0) {
             return -99999999;
@@ -398,6 +402,7 @@ var FactorEval_default = {
         return stock.getFundamentalTotalEquity() / (stock.getMarketCapital() * 1000);
     },
 
+    // PSR(역): 시가총액 / 매출액 := 주가매출액비율 (낮을수록 좋음)
     "_psr": function (stock) {
         if (stock.getMarketCapital() === 0) {
             return -99999999;
@@ -405,6 +410,7 @@ var FactorEval_default = {
         return (stock.getFundamentalRevenue() * 4) / (stock.getMarketCapital() * 1000);
     },
 
+    // PCR(역): 시가총액 / 주당현금흐름 := 주가현금흐름비율 (낮을수록 좋음)
     "_pcr": function (stock) {
         if (stock.getMarketCapital() === 0) {
             return -99999999;
@@ -412,29 +418,34 @@ var FactorEval_default = {
         return (stock.getFundamentalOperatingCashFlow() * 4) / (stock.getMarketCapital() * 1000);
     },
 
-    // Quality factor
-    "_roa": function (stock) {
+    /**** Quality Factors ****/
+    // ROA: 당기순이익 / 총자산 := 총자산순이익률 (높을수록 좋음)
+    "roa": function (stock) {
         if (stock.getFundamentalTotalAsset() === 0) {
             return -99999999;
         }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalTotalAsset();
     },
 
-    "_roe": function (stock) {
+    // ROE: 당기순이익 / 순자산 := 자기자본이익률 (높을수록 좋음)
+    "roe": function (stock) {
         if (stock.getFundamentalTotalEquity() === 0) {
             return -99999999;
         }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalTotalEquity();
     },
 
-    "_ros": function (stock) {
+    // ROS: 당기순이익 / 매출액 := 매출액순이익률 (높을수록 좋음)
+    "ros": function (stock) {
         if (stock.getFundamentalRevenue() === 0) {
             return -99999999;
         }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalRevenue();
     },
 
-    "_gpoa": function (stock) {
+    // GP/A: 매출총이익 / 총자산 (높을수록 좋음)
+    // * 재무제표에서 최상위 지표 (변질될 가능성이 낮음)
+    "gpoa": function (stock) {
         if (stock.getFundamentalTotalAsset() === 0) {
             return -99999999;
         }
@@ -442,29 +453,9 @@ var FactorEval_default = {
         return 4 * GP / stock.getFundamentalTotalAsset();
     },
 
-    "_evoebitda": function (stock) {
-        if (stock.getFundamentalTotalAsset() === 0) {
-            return -99999999;
-        }
-
-
-        var EV = stock.getFundamentalEV()
-        var EBITDA = stock.getFundamentalEBITDA()
-
-        // logger.debug('[' + stock.code + ']' + stock.name);
-        // logger.debug('EV: ' + EV + ' / ' + 'EBITDA: ' + EBITDA + ' / ' + 'EVoEBITDA: '  + EVoEBITDA)
-        // logger.debug('------------------------------------------------------------')
-
-        if (stock.getFundamentalEV() === 0) {
-            return -99999999;
-        }
-        if (stock.getFundamentalEBITDA() === 0) {
-            return -99999999;
-        }
-
-        return (EBITDA * 4) / EV;
-    },
-
+    // EV/EBIT(역): 기업가치 / 영업이익 (낮을수록 좋음)
+    // * EV = 시가총액+부채-현금-비영업자산
+    // * 기업을 통채로 샀을때 투자금액을 회수하는 데 걸리는 연수와 비슷
     "_evoebit": function (stock) {
         if (stock.getFundamentalTotalAsset() === 0) {
             return -99999999;
@@ -488,10 +479,32 @@ var FactorEval_default = {
         return stock.getFundamentalEBIT() / stock.getFundamentalEV();
     },
 
+    // EV/EBITDA(역): 기업가치 / (영업이익+감가상각비+감모상각비) (낮을수록 좋음)
+    "_evoebitda": function (stock) {
+        if (stock.getFundamentalTotalAsset() === 0) {
+            return -99999999;
+        }
 
+
+        // var EV = stock.getFundamentalEV()
+        // var EBITDA = stock.getFundamentalEBITDA()
+
+        // logger.debug('[' + stock.code + ']' + stock.name);
+        // logger.debug('EV: ' + EV + ' / ' + 'EBITDA: ' + EBITDA + ' / ' + 'EVoEBITDA: '  + EVoEBITDA)
+        // logger.debug('------------------------------------------------------------')
+
+        if (stock.getFundamentalEV() === 0) {
+            return -99999999;
+        }
+        if (stock.getFundamentalEBITDA() === 0) {
+            return -99999999;
+        }
+
+        return stock.getFundamentalEBITDA() / stock.getFundamentalEV();
+    },
 
     // Momentum factor
-    "_tsm12": function (stock) {
+    "tsm12": function (stock) {
         var daysPerMonth = 21;
         if (stock.getAdjClose(12 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
             return -1000;
@@ -499,7 +512,7 @@ var FactorEval_default = {
         return stock.getAdjClose(0) / stock.getAdjClose(12 * daysPerMonth);
     },
 
-    "_tsm6": function (stock) {
+    "tsm6": function (stock) {
         var daysPerMonth = 21;
         if (stock.getAdjClose(6 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
             return -1000;
@@ -507,7 +520,7 @@ var FactorEval_default = {
         return stock.getAdjClose(0) / stock.getAdjClose(6 * daysPerMonth);
     },
 
-    "_tsm3": function (stock) {
+    "tsm3": function (stock) {
         var daysPerMonth = 21;
         if (stock.getAdjClose(3 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
             return -1000;
@@ -515,18 +528,26 @@ var FactorEval_default = {
         return stock.getAdjClose(0) / stock.getAdjClose(3 * daysPerMonth);
     },
 
-    "_capsize": function (stock) {
+    "capsize": function (stock) {
         return stock.getMarketCapital();
     },
 
-    "_fscore": function (stock) {
+    "fscore": function (stock) {
 
         var score = getFscore(stock)
         if (score === Infinity || isNaN(score)) {
-            logger.debug('WARNING: 종목코드 ' + stock.code + '에 대한 F-score 지표값이 (' + score + ') 입니다. -99999999으로 대체합니다.');
+            logger.warning('[F-Score] 종목코드 ' + stock.code + '에 대한 F-score 지표값이 (' + score + ') 입니다. -99999999으로 대체합니다.');
             return -99999999;
         }
         return score;
+    },
+
+    // TODO: DEBUG & VERIFICATE
+    "_rsi": function (stock) {
+        stock.loadPrevData(0, 4, 0);
+        var test = stock.getRSI(rsiPeriod);
+        logger.debug("debug: " + test);
+        return stock.getRSI(rsiPeriod);
     }
 }
 
