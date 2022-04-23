@@ -11,9 +11,9 @@ IQEnvironment.simulationMethod = SimulationMethod.normal;
 // var minFscore = 2;
 var rsiPeriod = 10;             // 기술적 지표 RSI의 기간 설정. 대체로 사용되는 값은 9일, 14~15일, 25~28일 등이다.(위키백과)
 var mmtMonth = 12;
-var stock_ratio = 0.95; // 주식 + 채권 비율
+var stock_ratio = 0.70; // 주식 + 채권 비율
 var cash_ratio = 0.05;
-
+var inital_cash = 1000000
 var preMmtScore = 0;
 var PORT_portfolio1 = {
     "weight": function () {
@@ -96,7 +96,6 @@ function filterfn_portfolio1(stock) {
 }
 
 // Post-filters after Model Portfolio Construction
-// 
 function postfilterfn_portfolio1(stock) {
     return true;
 }
@@ -386,67 +385,51 @@ var FactorEval_default = {
     /**** Value Factors ****/
     // PER(역): 시가총액 / 당기순이익 := 주가수익비율 (낮을수록 좋음)
     "_per": function (stock) {
-        if (stock.getMarketCapital() === 0) {
-            return -99999999;
-        }
+        if (stock.getMarketCapital() === 0) { return -99999999; }
         return (stock.getFundamentalNetProfit() * 4) / (stock.getMarketCapital() * 1000);
     },
 
     // PBR(역): 시가총액 / 순자산 := 주가순자산비율 (낮을수록 좋음)
     "_pbr": function (stock) {
-        if (stock.getMarketCapital() === 0) {
-            return -99999999;
-        }
+        if (stock.getMarketCapital() === 0) { return -99999999; }
         return stock.getFundamentalTotalEquity() / (stock.getMarketCapital() * 1000);
     },
 
     // PSR(역): 시가총액 / 매출액 := 주가매출액비율 (낮을수록 좋음)
     "_psr": function (stock) {
-        if (stock.getMarketCapital() === 0) {
-            return -99999999;
-        }
+        if (stock.getMarketCapital() === 0) { return -99999999; }
         return (stock.getFundamentalRevenue() * 4) / (stock.getMarketCapital() * 1000);
     },
 
     // PCR(역): 시가총액 / 주당현금흐름 := 주가현금흐름비율 (낮을수록 좋음)
     "_pcr": function (stock) {
-        if (stock.getMarketCapital() === 0) {
-            return -99999999;
-        }
+        if (stock.getMarketCapital() === 0) { return -99999999; }
         return (stock.getFundamentalOperatingCashFlow() * 4) / (stock.getMarketCapital() * 1000);
     },
 
     /**** Quality Factors ****/
     // ROA: 당기순이익 / 총자산 := 총자산순이익률 (높을수록 좋음)
     "roa": function (stock) {
-        if (stock.getFundamentalTotalAsset() === 0) {
-            return -99999999;
-        }
+        if (stock.getFundamentalTotalAsset() === 0) { return -99999999; }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalTotalAsset();
     },
 
     // ROE: 당기순이익 / 순자산 := 자기자본이익률 (높을수록 좋음)
     "roe": function (stock) {
-        if (stock.getFundamentalTotalEquity() === 0) {
-            return -99999999;
-        }
+        if (stock.getFundamentalTotalEquity() === 0) { return -99999999; }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalTotalEquity();
     },
 
     // ROS: 당기순이익 / 매출액 := 매출액순이익률 (높을수록 좋음)
     "ros": function (stock) {
-        if (stock.getFundamentalRevenue() === 0) {
-            return -99999999;
-        }
+        if (stock.getFundamentalRevenue() === 0) { return -99999999; }
         return 4 * stock.getFundamentalNetProfit() / stock.getFundamentalRevenue();
     },
 
     // GP/A: 매출총이익 / 총자산 (높을수록 좋음)
     // * 재무제표에서 최상위 지표 (변질될 가능성이 낮음)
     "gpoa": function (stock) {
-        if (stock.getFundamentalTotalAsset() === 0) {
-            return -99999999;
-        }
+        if (stock.getFundamentalTotalAsset() === 0) { return -99999999; }
         var GP = stock.getFundamentalOperatingIncome() + stock.getFundamentalSellingExpense();
 
         return 4 * GP / stock.getFundamentalTotalAsset();
@@ -456,74 +439,36 @@ var FactorEval_default = {
     // * EV = 시가총액+부채-현금-비영업자산
     // * 기업을 통채로 샀을때 투자금액을 회수하는 데 걸리는 연수와 비슷
     "_evoebit": function (stock) {
-        if (stock.getFundamentalTotalAsset() === 0) {
-            return -99999999;
-        }
-
-
-        // var EV = stock.getFundamentalEV()
-        // var EBIT = stock.getFundamentalEBIT()
-
-        // logger.debug('[' + stock.code + ']' + stock.name);
-        // logger.debug('EV: ' + EV + ' / ' + 'EBITDA: ' + EBITDA + ' / ' + 'EVoEBITDA: '  + EVoEBITDA)
-        // logger.debug('------------------------------------------------------------')
-
-        if (stock.getFundamentalEV() === 0) {
-            return -99999999;
-        }
-        if (stock.getFundamentalEBIT() === 0) {
-            return -99999999;
-        }
-
+        if (stock.getFundamentalTotalAsset() === 0) { return -99999999; }
+        if (stock.getFundamentalEV() === 0) { return -99999999; }
+        if (stock.getFundamentalEBIT() === 0) { return -99999999; }
         return stock.getFundamentalEBIT() / stock.getFundamentalEV();
     },
 
     // EV/EBITDA(역): 기업가치 / (영업이익+감가상각비+감모상각비) (낮을수록 좋음)
     "_evoebitda": function (stock) {
-        if (stock.getFundamentalTotalAsset() === 0) {
-            return -99999999;
-        }
-
-
-        // var EV = stock.getFundamentalEV()
-        // var EBITDA = stock.getFundamentalEBITDA()
-
-        // logger.debug('[' + stock.code + ']' + stock.name);
-        // logger.debug('EV: ' + EV + ' / ' + 'EBITDA: ' + EBITDA + ' / ' + 'EVoEBITDA: '  + EVoEBITDA)
-        // logger.debug('------------------------------------------------------------')
-
-        if (stock.getFundamentalEV() === 0) {
-            return -99999999;
-        }
-        if (stock.getFundamentalEBITDA() === 0) {
-            return -99999999;
-        }
-
+        if (stock.getFundamentalTotalAsset() === 0) { return -99999999; }
+        if (stock.getFundamentalEV() === 0) { return -99999999; }
+        if (stock.getFundamentalEBITDA() === 0) { return -99999999; }
         return stock.getFundamentalEBITDA() / stock.getFundamentalEV();
     },
 
     // Momentum factor
     "tsm12": function (stock) {
         var daysPerMonth = 21;
-        if (stock.getAdjClose(12 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
-            return -1000;
-        }
+        if (stock.getAdjClose(12 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) { return -1000; }
         return stock.getAdjClose(0) / stock.getAdjClose(12 * daysPerMonth);
     },
 
     "tsm6": function (stock) {
         var daysPerMonth = 21;
-        if (stock.getAdjClose(6 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
-            return -1000;
-        }
+        if (stock.getAdjClose(6 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) { return -1000; }
         return stock.getAdjClose(0) / stock.getAdjClose(6 * daysPerMonth);
     },
 
     "tsm3": function (stock) {
         var daysPerMonth = 21;
-        if (stock.getAdjClose(3 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) {
-            return -1000;
-        }
+        if (stock.getAdjClose(3 * daysPerMonth) === 0 || stock.getAdjClose(0) === 0) { return -1000; }
         return stock.getAdjClose(0) / stock.getAdjClose(3 * daysPerMonth);
     },
 
@@ -551,10 +496,10 @@ var FactorEval_default = {
     }
 }
 
-var BL_portfolio = [PORT_portfolio1, PORT_portfolio1, PORT_portfolio1, PORT_portfolio1, PORT_portfolio1, PORT_portfolio1];
-var BL_builder = [builder_portfolio1, builder_portfolio1, builder_portfolio1, builder_portfolio1, builder_portfolio1, builder_portfolio1];
+var BL_portfolio = [PORT_portfolio1];
+var BL_builder = [builder_portfolio1];
 var BL_basket = [];
-var BL_name = ['1-모멘텀', '2-가속모멘텀', '3-절대모멘텀', '4-모멘텀(계절성)', '5-가속모멘텀(계절성)', '6-절대모멘텀(계절성)'];
+var BL_name = ['1-절대모멘텀(계절성)'];
 
 function initialize() {
 
@@ -562,6 +507,7 @@ function initialize() {
         if (i === 0) {
             var acc = IQAccount.getDefaultAccount();
             acc.accountName = BL_name[i];
+            acc.cash = inital_cash;
         } else {
             var acc = IQAccount.addAccount('0000-0000-0' + String(i), BL_name[i], IQEnvironment.aum);
         }
@@ -569,7 +515,7 @@ function initialize() {
         BL_basket[i].setPortfolioBuilder(BL_builder[i]);
     }
 
-    IQDate.addRebalSchedule(IQDate.setMonthlyStart(1));
+    IQDate.addRebalSchedule(IQDate.setMonthlyStart(15));
     // IQDate.addRebalSchedule(IQDate.setYearly(4, 1));
     // IQDate.addRebalSchedule(IQDate.setYearly(6, 1));
     // IQDate.addRebalSchedule(IQDate.setYearly(9, 1));
@@ -766,12 +712,7 @@ function onDayClose(now) {
             logger.info('-------------------- ' + BL_name[i] + ' --------------------');
 
             // var wgt = BL_portfolio[i].weight();
-            if (i === 0) { wgt = mmtWeight; }
-            else if (i === 1) { wgt = accMmtWeight; }
-            else if (i === 2) { wgt = absMntWeight; }
-            else if (i === 3) { wgt = mmtWeight_season; }
-            else if (i === 4) { wgt = accMmtWeight_season; }
-            else { wgt = absMntWeight_season; }
+            wgt = absMntWeight_season;
 
             var acc = BL_basket[i].account;
             var currentTotalEquity = acc.getTotalEquity();
